@@ -100,6 +100,32 @@ settings. Your editor shows each model's settings.
     options:
       heading_level: 4
 
+### Free & Local Voices { #manimgx.audio.tts }
+
+::: manimgx.Edge
+    options:
+      heading_level: 3
+
+::: manimgx.audio.tts.EdgeSettings
+    options:
+      heading_level: 4
+
+::: manimgx.QwenTTS
+    options:
+      heading_level: 3
+
+::: manimgx.audio.tts.QwenTTSSettings
+    options:
+      heading_level: 4
+
+::: manimgx.SystemVoice
+    options:
+      heading_level: 3
+
+::: manimgx.audio.tts.SystemVoiceSettings
+    options:
+      heading_level: 4
+
 ## Captions
 
 ::: manimgx.Scene.add_subcaption

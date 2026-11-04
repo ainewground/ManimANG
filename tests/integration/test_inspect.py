@@ -173,7 +173,7 @@ def test_a_scene_without_plays_still_gets_a_picture(
     path = source(tmp_path, "self.add(m.Cube())", base="ThreeDScene")
     result = CliRunner().invoke(app, ["inspect", str(path), *times])
     assert result.exit_code == 0, result.output
-    assert "layout: not checked (a 3D scene)" in result.output
+    assert "layout: no problems in " in result.output
     assert (tmp_path / "Example.storyboard.png").is_file()
 
 
@@ -267,3 +267,115 @@ def test_sampling_preserves_the_video_with_tweens_holds_and_updaters(
             y = row * (expected.height + CAPTION + GAP) + CAPTION
             actual = sheet.crop((x, y, x + expected.width, y + expected.height))
             assert actual.tobytes() == expected.tobytes(), f"frame {index}"
+
+
+@pytest.mark.parametrize(
+    ("mesh_expr", "mesh_kind"),
+    [
+        ("m.Sphere(radius=1.8).shift(2 * m.OUT)", "Sphere"),
+        ("m.Cube(side_length=3.0).shift(2 * m.OUT)", "Cube"),
+        (
+            "m.Surface(lambda u, v: [u, v, 2.0], u_range=(-2, 2), v_range=(-2, 2))",
+            "Surface",
+        ),
+        ("m.Torus(major_radius=0.8, minor_radius=0.9).shift(2 * m.OUT)", "Torus"),
+    ],
+)
+def test_3d_meshes_covering_text_are_detected_and_marked(
+    tmp_path: Path, mesh_expr: str, mesh_kind: str
+) -> None:
+    path = source(
+        tmp_path,
+        "self.set_camera_orientation(phi=0, theta=-90 * m.DEGREES)\n"
+        'formula = m.MathTex("E = mc^2")\n'
+        f"blocker = {mesh_expr}\n"
+        "self.add(formula, blocker)\n"
+        "self.wait(0.1)",
+        base="ThreeDScene",
+    )
+    result = CliRunner().invoke(app, ["inspect", str(path)])
+    assert result.exit_code == 1, result.output
+    assert f"blocker ({mesh_kind}): {mesh_kind} is drawn over" in result.output
+    with Image.open(tmp_path / "Example.storyboard.png") as image:
+        pixels = np.array(image)
+        assert ((pixels == [255, 64, 64]).all(axis=-1)).any()
+
+
+def test_3d_mesh_behind_text_or_behind_hud_text_is_not_flagged_as_covered(
+    tmp_path: Path,
+) -> None:
+    path = source(
+        tmp_path,
+        "self.set_camera_orientation(phi=0, theta=-90 * m.DEGREES)\n"
+        'front_text = m.Text("In Front").shift(2 * m.OUT)\n'
+        'hud_title = m.Text("HUD Title").to_corner(m.UL)\n'
+        "self.add_fixed_in_frame_mobjects(hud_title)\n"
+        "back_sphere = m.Sphere(radius=1.5).shift(3 * m.IN)\n"
+        "self.add(back_sphere, front_text)\n"
+        "self.wait(0.1)",
+        base="ThreeDScene",
+    )
+    result = CliRunner().invoke(app, ["inspect", str(path)])
+    assert result.exit_code == 0, result.output
+    assert "no problems in 1 sample" in result.output
+
+
+@pytest.mark.parametrize(
+    ("line_expr", "expected_kind"),
+    [
+        ("m.Line3D(3 * m.LEFT, 3 * m.RIGHT)", "Line3D"),
+        ("m.Arrow3D(3 * m.LEFT, 3 * m.RIGHT)", "Arrow3D"),
+        ("m.ThreeDAxes()", "NumberLine"),
+    ],
+)
+def test_3d_lines_and_axes_crossing_text_are_detected(
+    tmp_path: Path, line_expr: str, expected_kind: str
+) -> None:
+    path = source(
+        tmp_path,
+        "self.set_camera_orientation(phi=60 * m.DEGREES, theta=-45 * m.DEGREES)\n"
+        'label = m.Text("Origin")\n'
+        f"wire = {line_expr}\n"
+        "self.add(wire, label)\n"
+        "self.wait(0.1)",
+        base="ThreeDScene",
+    )
+    result = CliRunner().invoke(app, ["inspect", str(path)])
+    assert result.exit_code == 1, result.output
+    assert f"{expected_kind} runs through the text" in result.output
+    with Image.open(tmp_path / "Example.storyboard.png") as image:
+        pixels = np.array(image)
+        assert ((pixels == [255, 64, 64]).all(axis=-1)).any()
+
+
+def test_3d_cut_small_and_overlap_with_hud_and_fixed_orientation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "scene_3d_all.py"
+    path.write_text(
+        "import manimang as m\n"
+        "m.config.pixel_width, m.config.pixel_height = 320, 180\n"
+        "m.config.frame_rate = 10\n"
+        "class Example(m.ThreeDScene):\n"
+        "    def construct(self) -> None:\n"
+        "        self.set_camera_orientation(phi=75 * m.DEGREES, theta=-90 * m.DEGREES)\n"
+        "        clipped_sphere = m.Sphere(radius=2.0).shift(6.5 * m.RIGHT)\n"
+        '        tiny_3d = m.Text("tiny", font_size=24).shift(2 * m.LEFT)\n'
+        '        hud = m.Text("Centered")\n'
+        "        self.add_fixed_in_frame_mobjects(hud)\n"
+        '        billboard = m.Text("Billboard")\n'
+        "        self.add_fixed_orientation_mobjects(billboard)\n"
+        "        self.add(clipped_sphere, tiny_3d)\n"
+        "        self.wait(0.1)\n",
+        encoding="utf-8",
+    )
+    result = CliRunner().invoke(app, ["inspect", str(path)])
+    assert result.exit_code == 1, result.output
+    assert "clipped_sphere (Sphere):" in result.output
+    assert "past the" in result.output
+    assert "tiny_3d (Text 'tiny'): text is" in result.output
+    assert "px tall at 1080p" in result.output
+    assert "texts overlap" in result.output
+    with Image.open(tmp_path / "Example.storyboard.png") as image:
+        pixels = np.array(image)
+        assert ((pixels == [255, 64, 64]).all(axis=-1)).any()

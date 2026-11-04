@@ -614,7 +614,13 @@ class Feeder:
         frame and the records pinned by the caller, including every pending camera view.
         The player evicts in turn: after the frames sent before, and once its video's frames
         in flight that may be drawn again are settled."""
-        pressed |= self.player.held() > BUDGET
+        if hasattr(self.player, "held"):
+            held = self.player.held()
+        else:
+            stored_fn = self.player.stored
+            s_total, s_dead = stored_fn()
+            held = s_total - s_dead
+        pressed |= held > BUDGET
         if self.frames - self.swept < SWEEP and not pressed:
             return
         for data in (*self.latest, *pinned):
@@ -946,6 +952,18 @@ class Feeder:
             cameras.append((key, w, h, uniform, records))
         return key
 
+    def _orient_map(self, camera: "Camera", three_d: bool) -> dict[int, np.ndarray]:
+        if not (three_d and camera._fixed_orientation):
+            return {}
+        r_t = rotation(camera.get_phi(), camera.get_theta(), camera.get_gamma()).T
+        out: dict[int, np.ndarray] = {}
+        for root in camera._fixed_orientation:
+            c = np.asarray(root.get_center(), dtype=float)
+            mat = np.column_stack([r_t, c - r_t @ c])
+            for m in root.get_family():
+                out[id(m)] = mat
+        return out
+
     def view(
         self,
         camera: "Camera",
@@ -956,13 +974,22 @@ class Feeder:
     ) -> tuple[bytes, bytes]:
         uniform, _, three_d = view(camera, width, height, self.lights(mobjects))
         fixed = camera.fixed_in_frame_mobjects  # read once a view
+        orient = self._orient_map(camera, three_d)
         data = b"".join(
             [
                 r
                 for mob in mobjects
                 if (
                     r := self.record(
-                        mob, camera, three_d, mobjects, width, height, cameras, fixed
+                        mob,
+                        camera,
+                        three_d,
+                        mobjects,
+                        width,
+                        height,
+                        cameras,
+                        fixed,
+                        orient.get(id(mob)),
                     )
                 )
             ]
@@ -979,6 +1006,7 @@ class Feeder:
         height: int,
         cameras: list[CameraView],
         fixed: "set[Mobject]",
+        billboard: np.ndarray | None = None,
     ) -> bytes | None:
         """One object's record (336 bytes), or None if it draws nothing. It is a function of the
         object's geometry and paint (values), a mesh's topology (indices or lattice dimensions, with uvs:
@@ -993,6 +1021,7 @@ class Feeder:
             mob in fixed,
             bool(p.shade_in_3d and three_d),
             bool(p.material and three_d),
+            None if billboard is None else tuple(billboard.ravel().tolist()),
         )
         live = p.texture is not None and not isinstance(p.texture, np.ndarray)
         topology = (mob._topology, mob.uvs) if isinstance(mob, MeshMobject) else None
@@ -1012,7 +1041,7 @@ class Feeder:
                 mob.__dict__["_film_record"] = (*memo[:6], self.evictions, memo[7])
                 return memo[4]
         made = self.make_record(
-            mob, camera, three_d, mobjects, width, height, cameras, state[0]
+            mob, camera, three_d, mobjects, width, height, cameras, state[0], billboard
         )
         if made is None:
             return None
@@ -1039,6 +1068,7 @@ class Feeder:
         height: int,
         cameras: list[CameraView],
         fixed: bool,
+        billboard: np.ndarray | None = None,
     ) -> tuple[bytes, tuple[int, ...]] | None:
         """(record, the keys it draws) — see `record`; `fixed`: is it fixed in the frame?"""
         g: Blend = mob._geometry
@@ -1126,7 +1156,10 @@ class Feeder:
         placed: list[float] = []
         for i, ((key, a), (matrix, _)) in enumerate(zip(keys, terms[:2], strict=False)):
             head[i] = key
-            placed += place(matrix, a).ravel().tolist()
+            m_placed = place(matrix, a)
+            if billboard is not None and not fixed:
+                m_placed = place(billboard, m_placed)
+            placed += m_placed.ravel().tolist()
         if len(placed) == 12:
             placed += NO_TERM
         if fixed:

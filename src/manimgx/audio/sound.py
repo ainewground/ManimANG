@@ -417,15 +417,83 @@ text-to-speech: wrap its call in a function that returns `Speech(audio, text=tex
 # ── timing ───────────────────────────────────────────────────────────────────────────────
 
 
+def _fallback_segments(text: str) -> tuple[list[int], list[int]]:
+    """Pure-Python + Typst-backed fallback for `_engine.segments(text)` when running with an older binary."""
+    n = len(text)
+    if not n:
+        return [0], [0]
+
+    if re.search(r"[\u0e00-\u0eff\u1000-\u109f\u1780-\u17ff]", text):
+        from manimgx import _engine
+        from manimgx.drawing import typesetting as tc
+
+        src = f"#set page(width: 0.01pt, height: auto, margin: 0pt)\n#{tc.typst_string(text)}"
+        rows, _, _, _ = _engine.typeset(src, tc.FONTS)
+        table = np.frombuffer(rows).reshape(-1, tc.ROW)
+        raw = text.encode("utf-8")
+        breaks = [0]
+        last_y: float | None = None
+        for r in table:
+            b0 = int(r[20])
+            if b0 < 0:
+                continue
+            y = round(float(r[7]), 2)
+            if last_y is not None and y != last_y:
+                char_idx = len(raw[:b0].decode("utf-8", errors="ignore"))
+                if char_idx > breaks[-1]:
+                    breaks.append(char_idx)
+            last_y = y
+        if breaks[-1] != n:
+            breaks.append(n)
+    else:
+
+        def _is_cjk(c: str) -> bool:
+            cp = ord(c)
+            return (
+                0x3000 <= cp <= 0x30FF
+                or 0x3400 <= cp <= 0x9FFF
+                or 0xF900 <= cp <= 0xFAFF
+                or 0xFF00 <= cp <= 0xFFEF
+                or 0xAC00 <= cp <= 0xD7AF
+            )
+
+        breaks = [0]
+        for i in range(1, n):
+            prev, cur = text[i - 1], text[i]
+            if prev == "\u00a0" or cur == "\u00a0":
+                continue
+            if prev.isspace() and not cur.isspace():
+                breaks.append(i)
+                continue
+            if cur.isspace():
+                continue
+            if unicodedata.category(prev) in ("Ps", "Pi"):
+                continue
+            if cur == "ー" or unicodedata.category(cur) in ("Pe", "Pf", "Po"):
+                continue
+            if prev in "-/" or _is_cjk(prev) or _is_cjk(cur):
+                breaks.append(i)
+        breaks.append(n)
+    sentences = [0]
+    for m in re.finditer(
+        r"(?:[。！？]+[\"'”’）)」』\]]*\s*|[.!?]+[\"'”’）)」』\]]*(?:\s+|$))", text
+    ):
+        if m.end() < n:
+            sentences.append(m.end())
+    sentences.append(n)
+    return breaks, sentences
+
+
 def _pieces(text: str) -> list[tuple[int, int, bool]]:
     """The pieces a text is timed and shown in: what lies between two places Unicode lets a
     line break, without its spaces (a word, a Chinese or Japanese character, a Thai word, each
     with the marks that go with it), as the characters (begin, end) it spells, and whether a
     sentence ends with it. An opening bracket or quote that the end of a sentence takes with it
     (`。「`) begins the next sentence, as it begins the next line."""
-    from manimgx._engine import segments
+    from manimgx import _engine
 
-    breaks, sentences = segments(text)
+    seg_fn = getattr(_engine, "segments", _fallback_segments)
+    breaks, sentences = seg_fn(text)
     ends = set()
     for end in sentences:
         while end and unicodedata.category(text[end - 1]) in ("Ps", "Pi"):

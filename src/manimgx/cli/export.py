@@ -199,8 +199,7 @@ def inspect(
 
     def ended(made: Scene, play: Play, animations: tuple[Animation, ...]) -> None:
         nonlocal known
-        if not made.three_d:
-            known = names(made, written_frame())
+        known = names(made, written_frame())
         watch.lines.append(line(play, animations))
         if None not in wanted and not pending:
             raise Cut  # the play showing the last frame asked for is over

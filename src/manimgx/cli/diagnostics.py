@@ -12,6 +12,8 @@ import manimgx
 from manimgx.constants import DL, UR
 from manimgx.drawing.geometry import subpath_ranges
 from manimgx.mobject import Mobject
+from manimgx.rendering.feed import NEAR, rotation
+from manimgx.rendering.feed import view as feed_view
 from manimgx.scene import Scene
 from manimgx.settings import config
 
@@ -21,6 +23,11 @@ TEXTS: tuple[type[Mobject], ...] = (
     manimgx.Typst,
     manimgx.DecimalNumber,
     manimgx.Code,
+)
+SOLIDS: tuple[type[Mobject], ...] = (
+    manimgx.MeshMobject,
+    manimgx.Cube,
+    manimgx.Polyhedron,
 )
 # what the player draws (a plain Mobject with points — a ValueTracker's value — is not drawn)
 DRAWN: tuple[type[Mobject], ...] = (
@@ -54,6 +61,10 @@ class Thing:
     root_kind: str
     backdrop: int | None  # a text's own opaque background: its draw order
     ink: int  # a text's glyphs, fingerprinted: equal ink in one place is one text
+    triangles: np.ndarray | None = None  # a 3D solid's projected triangles: (T, 3, 2)
+    depths: np.ndarray | None = None  # per-triangle reversed-Z depth: (T,)
+    depth: float = 0.0  # object's reversed-Z depth (inf for fixed_in_frame overlay)
+    tall: float = 0.0  # projected text height in scene units (0: use box height)
 
 
 def written_frame() -> FrameType | None:
@@ -130,17 +141,26 @@ def _visible(mob: Mobject) -> bool:
     return fill > 0.02 or stroked
 
 
-def outline(mob: Mobject) -> np.ndarray | None:
+def outline(mob: Mobject, points_2d: np.ndarray | None = None) -> np.ndarray | None:
     """A path's cubic curves as polylines (17 samples each): (curves, 17, 2)."""
-    points = mob.points
+    points = mob.points[:, :2] if points_2d is None else points_2d
     if len(points) < 4:
         return points[None, :, :2] if len(points) >= 2 else None
-    curves = points[: len(points) // 4 * 4].reshape(-1, 4, points.shape[1])[:, :, :2]
+    curves = points[: len(points) // 4 * 4].reshape(-1, 4, 2)
     t = np.linspace(0, 1, 17)
     basis = np.stack(
         [(1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t**2, t**3], axis=1
     )
     return np.einsum("tk,ckd->ctd", basis, curves)
+
+
+def _rank(three_d: bool, z_val: float, display_order: int) -> int:
+    """Draw order rank: in 2D, painter's order; in 3D, (overlay, camera depth, painter's order)."""
+    if not three_d:
+        return display_order
+    is_overlay = 1 if np.isinf(z_val) else 0
+    depth_int = 0 if is_overlay else max(0, int(round(z_val * 10_000_000)))
+    return (is_overlay << 48) | (depth_int << 16) | (display_order & 0xFFFF)
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,9 +177,16 @@ def view(scene: Scene, known: Names | None = None) -> View:
     """What the viewer sees now. Names from the running code take precedence over `known`,
     which preserves local names after `construct` returns."""
     (x0, y0), (x1, y1) = (scene.camera.frame.get_corner(c)[:2] for c in (DL, UR))
-    frame = (float(x0), float(y0), float(x1), float(y1))
+    raw_frame = (float(x0), float(y0), float(x1), float(y1))
     w, h = config.frame_width / 2, config.frame_height / 2
-    framed = max(abs(a - b) for a, b in zip(frame, (-w, -h, w, h), strict=True)) > 1e-3
+    framed = (
+        max(abs(a - b) for a, b in zip(raw_frame, (-w, -h, w, h), strict=True)) > 1e-3
+    )
+    if scene.three_d:
+        hw, hh = scene.camera.frame_width / 2, scene.camera.frame_height / 2
+        frame = (float(-hw), float(-hh), float(hw), float(hh))
+    else:
+        frame = raw_frame
     current = names(scene, written_frame())
     if known is not None:
         current = (known[0] | current[0], known[1] | current[1])
@@ -171,6 +198,47 @@ def seen(scene: Scene, scope: Names) -> list[Thing]:
     named, bare = scope
     order = {id(leaf): i for i, leaf in enumerate(scene.display_list())}
     out: list[Thing] = []
+    three_d = bool(scene.three_d)
+    cam = scene.camera
+    hw, hh = cam.frame_width / 2, cam.frame_height / 2
+    fixed = cam.fixed_in_frame_mobjects if three_d else set()
+    orient_centers: dict[int, np.ndarray] = {}
+    if three_d:
+        _, projection, _ = feed_view(cam, config.pixel_width, config.pixel_height)
+        f = max(float(cam.get_focal_distance()), 1e-6)
+        w_min = NEAR / f
+        r_t = rotation(cam.get_phi(), cam.get_theta(), cam.get_gamma()).T
+        for root_mob in cam._fixed_orientation:
+            c = np.asarray(root_mob.get_center(), dtype=float)
+            for m in root_mob.get_family():
+                orient_centers[id(m)] = c
+    else:
+        projection = np.eye(4)
+        f = 20.0
+        w_min = 1e-3
+        r_t = np.eye(3)
+
+    def project(
+        mob: Mobject, points_3d: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray] | None:
+        if len(points_3d) == 0:
+            return None
+        if not three_d:
+            return points_3d[:, :2], np.zeros(len(points_3d))
+        if mob in fixed:
+            return points_3d[:, :2], np.full(len(points_3d), float("inf"))
+        pts = points_3d[:, :3]
+        if (c := orient_centers.get(id(mob))) is not None:
+            pts = c + (pts - c) @ r_t.T
+        clip_x = pts @ projection[0, :3] + projection[0, 3]
+        clip_y = pts @ projection[1, :3] + projection[1, 3]
+        w = pts @ projection[3, :3] + projection[3, 3]
+        if bool(np.all(w < w_min)):
+            return None
+        w_safe = np.maximum(w, w_min)
+        pts_2d = np.column_stack([clip_x / w_safe * hw, clip_y / w_safe * hh])
+        pts_z = (NEAR / f) / w_safe
+        return pts_2d, pts_z
 
     def name_of(mob: Mobject, chain: list[Mobject]) -> str:
         for m in reversed(chain):
@@ -191,12 +259,24 @@ def seen(scene: Scene, scope: Names) -> list[Thing]:
             leaves = [m for m in mob.family_members_with_points() if _visible(m)]
             if not leaves:
                 return
-            points = np.concatenate([m.points for m in leaves])[:, :2]
+            proj_parts = [p for m in leaves if (p := project(m, m.points)) is not None]
+            if not proj_parts:
+                return
+            points = np.concatenate([p[0] for p in proj_parts])
+            zs = np.concatenate([p[1] for p in proj_parts])
             (x0, y0), (x1, y1) = points.min(axis=0), points.max(axis=0)
             if min(x1 - x0, y1 - y0) <= EMPTY:
                 return  # glyphs without area
+            tall_val = float(y1 - y0)
+            if three_d and len(points) >= 3:
+                centered = points - points.mean(axis=0)
+                _, vecs = np.linalg.eigh(centered.T @ centered)
+                perp = centered @ vecs[:, 0]
+                tall_val = min(tall_val, float(perp.max() - perp.min()))
+            z_val = float(np.median(zs))
+            disp = min(order.get(id(m), 0) for m in leaves)
             backs = [
-                order.get(id(m), 0)
+                _rank(three_d, z_val, order.get(id(m), 0))
                 for m in leaves
                 if isinstance(m, manimgx.BackgroundRectangle) and _paint(m)[0] >= 0.9
             ]
@@ -207,18 +287,206 @@ def seen(scene: Scene, scope: Names) -> list[Thing]:
                     name=name,
                     kind=type(mob).__name__,
                     text=text_of(mob),
-                    box=(x0, y0, x1, y1),
+                    box=(float(x0), float(y0), float(x1), float(y1)),
                     outline=None,
                     fill=1.0,
                     stroked=False,
                     closed=True,
-                    order=min(order.get(id(m), 0) for m in leaves),
+                    order=_rank(three_d, z_val, disp),
                     root=root,
                     root_kind=root_kind,
                     backdrop=min(backs) if backs else None,
                     ink=hash(np.round(points, 3).tobytes()),
+                    depth=z_val,
+                    tall=tall_val,
                 )
             )
+            return
+        if isinstance(mob, manimgx.Line3D):
+            leaves = [m for m in mob.family_members_with_points() if _visible(m)]
+            if not leaves:
+                return
+            proj_parts = [p for m in leaves if (p := project(m, m.points)) is not None]
+            if not proj_parts:
+                return
+            all_2d = np.concatenate([p[0] for p in proj_parts])
+            all_z = np.concatenate([p[1] for p in proj_parts])
+            start_3d = np.asarray(mob.start, dtype=float)
+            end_3d = (
+                np.asarray(mob.end_point.get_center(), dtype=float)
+                if isinstance(mob, manimgx.Arrow3D)
+                else np.asarray(mob.end, dtype=float)
+            )
+            t = np.linspace(0.0, 1.0, 17)[:, None]
+            spine_3d = start_3d * (1.0 - t) + end_3d * t
+            spine_proj = project(mob, spine_3d)
+            if spine_proj is None:
+                return
+            curves = spine_proj[0][None, :, :]
+            (x0, y0), (x1, y1) = all_2d.min(axis=0), all_2d.max(axis=0)
+            if max(x1 - x0, y1 - y0) <= EMPTY:
+                return
+            z_val = float(np.median(all_z))
+            disp = min(order.get(id(m), 0) for m in leaves)
+            name = name_of(mob, chain)
+            root, root_kind = root_of(name, chain)
+            out.append(
+                Thing(
+                    name=name,
+                    kind=type(mob).__name__,
+                    text=None,
+                    box=(float(x0), float(y0), float(x1), float(y1)),
+                    outline=curves,
+                    fill=0.0,
+                    stroked=True,
+                    closed=False,
+                    order=_rank(three_d, z_val, disp),
+                    root=root,
+                    root_kind=root_kind,
+                    backdrop=None,
+                    ink=0,
+                    depth=z_val,
+                )
+            )
+            return
+        if isinstance(mob, SOLIDS):
+            source_group = mob.faces if isinstance(mob, manimgx.Polyhedron) else mob
+            leaves = [
+                m
+                for m in source_group.family_members_with_points()
+                if _visible(m) and m.has_points()
+            ]
+            if not leaves:
+                return
+            tri_list: list[np.ndarray] = []
+            depth_list: list[np.ndarray] = []
+            extent_list: list[np.ndarray] = []
+            stroked_curves: list[np.ndarray] = []
+            for leaf in leaves:
+                proj = project(leaf, leaf.points)
+                if proj is None:
+                    continue
+                v2d, vz = proj
+                extent_list.append(v2d)
+                leaf_fill, leaf_stroked = _paint(leaf)
+                if isinstance(leaf, manimgx.MeshMobject):
+                    tris = leaf.triangles
+                    if len(tris):
+                        tri_list.append(v2d[tris])
+                        depth_list.append(vz[tris].mean(axis=1))
+                        if leaf_fill < 0.5 and leaf_stroked:
+                            t2d = v2d[tris]
+                            edges = np.concatenate(
+                                [t2d[:, [0, 1]], t2d[:, [1, 2]], t2d[:, [2, 0]]],
+                                axis=0,
+                            )
+                            stroked_curves.append(edges)
+                elif isinstance(leaf, manimgx.VMobject):
+                    c2d = outline(leaf, v2d)
+                    if c2d is not None:
+                        ring = c2d[:, [0, 8]].reshape(-1, 2)
+                        k = len(ring)
+                        if k >= 3:
+                            ctr = ring.mean(axis=0)
+                            nxt = np.roll(ring, -1, axis=0)
+                            fan = np.stack(
+                                [np.broadcast_to(ctr, (k, 2)), ring, nxt], axis=1
+                            )
+                            tri_list.append(fan)
+                            depth_list.append(np.full(k, float(np.median(vz))))
+                        if leaf_stroked:
+                            stroked_curves.append(c2d)
+            if not extent_list:
+                return
+            all_pts = np.concatenate(extent_list, axis=0)
+            (x0, y0), (x1, y1) = all_pts.min(axis=0), all_pts.max(axis=0)
+            fill = max(_paint(m)[0] for m in leaves)
+            stroked = bool(stroked_curves)
+            if min(x1 - x0, y1 - y0) <= EMPTY and not (
+                stroked and max(x1 - x0, y1 - y0) > EMPTY
+            ):
+                return
+            triangles = np.concatenate(tri_list, axis=0) if tri_list else None
+            depths = np.concatenate(depth_list, axis=0) if depth_list else None
+            z_val = (
+                float(np.median(depths)) if depths is not None and len(depths) else 0.0
+            )
+            disp = min(order.get(id(m), 0) for m in leaves)
+            name = name_of(mob, chain)
+            root, root_kind = root_of(name, chain)
+            out.append(
+                Thing(
+                    name=name,
+                    kind=type(mob).__name__,
+                    text=None,
+                    box=(float(x0), float(y0), float(x1), float(y1)),
+                    outline=np.concatenate(stroked_curves, axis=0)
+                    if stroked_curves
+                    else None,
+                    fill=fill,
+                    stroked=stroked,
+                    closed=True,
+                    order=_rank(three_d, z_val, disp),
+                    root=root,
+                    root_kind=root_kind,
+                    backdrop=None,
+                    ink=0,
+                    triangles=triangles,
+                    depths=depths,
+                    depth=z_val,
+                )
+            )
+            return
+        if isinstance(mob, manimgx.NumberLine) and not _visible(mob):
+            # A ThreeDAxes axis splits its stroke into 3D VMobject pieces while setting its own
+            # stroke_width to 0; group those pieces into one NumberLine Thing.
+            pieces = [
+                m
+                for m in mob.family_members_with_points()
+                if m is not mob
+                and isinstance(m, manimgx.VMobject)
+                and not isinstance(m, TEXTS)
+                and _visible(m)
+            ]
+            curves_list: list[np.ndarray] = []
+            z_list: list[np.ndarray] = []
+            for p_mob in pieces:
+                proj = project(p_mob, p_mob.points)
+                if proj is not None and (c2d := outline(p_mob, proj[0])) is not None:
+                    curves_list.append(c2d)
+                    z_list.append(proj[1])
+            if curves_list:
+                curves = np.concatenate(curves_list, axis=0)
+                extent = curves.reshape(-1, 2)
+                (x0, y0), (x1, y1) = extent.min(axis=0), extent.max(axis=0)
+                if max(x1 - x0, y1 - y0) > EMPTY:
+                    z_val = float(np.median(np.concatenate(z_list)))
+                    disp = min(order.get(id(m), 0) for m in pieces)
+                    name = name_of(mob, chain)
+                    root, root_kind = root_of(name, chain)
+                    out.append(
+                        Thing(
+                            name=name,
+                            kind=type(mob).__name__,
+                            text=None,
+                            box=(float(x0), float(y0), float(x1), float(y1)),
+                            outline=curves,
+                            fill=0.0,
+                            stroked=True,
+                            closed=False,
+                            order=_rank(three_d, z_val, disp),
+                            root=root,
+                            root_kind=root_kind,
+                            backdrop=None,
+                            ink=0,
+                            depth=z_val,
+                        )
+                    )
+            for sub in mob.submobjects:
+                if isinstance(sub, TEXTS) or any(
+                    isinstance(d, TEXTS) for d in sub.get_family()
+                ):
+                    visit(sub, chain)
             return
         if (
             mob.has_points()
@@ -232,8 +500,12 @@ def seen(scene: Scene, scope: Names) -> list[Thing]:
             visit(sub, chain)
 
     def shape(mob: Mobject, chain: list[Mobject]) -> Thing | None:
-        curves = outline(mob) if isinstance(mob, manimgx.VMobject) else None
-        extent = curves.reshape(-1, 2) if curves is not None else mob.points[:, :2]
+        proj = project(mob, mob.points)
+        if proj is None:
+            return None
+        pts_2d, pts_z = proj
+        curves = outline(mob, pts_2d) if isinstance(mob, manimgx.VMobject) else None
+        extent = curves.reshape(-1, 2) if curves is not None else pts_2d
         (x0, y0), (x1, y1) = extent.min(axis=0), extent.max(axis=0)
         fill, stroked = _paint(mob)
         if min(x1 - x0, y1 - y0) <= EMPTY and not (
@@ -243,22 +515,24 @@ def seen(scene: Scene, scope: Names) -> list[Thing]:
         closed = isinstance(mob, manimgx.VMobject) and all(
             c for _, _, c in subpath_ranges(mob.points, 1e-6)
         )
+        z_val = float(np.median(pts_z))
         name = name_of(mob, chain)
         root, root_kind = root_of(name, chain)
         return Thing(
             name=name,
             kind=type(mob).__name__,
             text=None,
-            box=(x0, y0, x1, y1),
+            box=(float(x0), float(y0), float(x1), float(y1)),
             outline=curves,
             fill=fill,
             stroked=stroked,
             closed=closed,
-            order=order[id(mob)],
+            order=_rank(three_d, z_val, order[id(mob)]),
             root=root,
             root_kind=root_kind,
             backdrop=None,
             ink=0,
+            depth=z_val,
         )
 
     for mob in scene.mobjects:
@@ -355,6 +629,28 @@ def covers(curves: np.ndarray, points: np.ndarray) -> np.ndarray:
     return np.sum(straddle & (px < x), axis=1) % 2 == 1
 
 
+def covers_triangles(triangles: np.ndarray, points: np.ndarray) -> np.ndarray:
+    """Which points lie inside the union of these 2D triangles."""
+    if len(triangles) == 0 or len(points) == 0:
+        return np.zeros(len(points), dtype=bool)
+    a, b, c = triangles[:, 0], triangles[:, 1], triangles[:, 2]
+    area2 = np.abs(
+        (b[:, 0] - a[:, 0]) * (c[:, 1] - a[:, 1])
+        - (b[:, 1] - a[:, 1]) * (c[:, 0] - a[:, 0])
+    )
+    valid = area2 > 1e-10
+    if not np.any(valid):
+        return np.zeros(len(points), dtype=bool)
+    a, b, c = a[valid], b[valid], c[valid]
+    px, py = points[:, 0:1], points[:, 1:2]
+    c0 = (b[:, 0] - a[:, 0]) * (py - a[:, 1]) - (b[:, 1] - a[:, 1]) * (px - a[:, 0])
+    c1 = (c[:, 0] - b[:, 0]) * (py - b[:, 1]) - (c[:, 1] - b[:, 1]) * (px - b[:, 0])
+    c2 = (a[:, 0] - c[:, 0]) * (py - c[:, 1]) - (a[:, 1] - c[:, 1]) * (px - c[:, 0])
+    pos = (c0 >= -1e-9) & (c1 >= -1e-9) & (c2 >= -1e-9)
+    neg = (c0 <= 1e-9) & (c1 <= 1e-9) & (c2 <= 1e-9)
+    return np.any(pos | neg, axis=1)
+
+
 def _grid(box: Box, n: int) -> np.ndarray:
     xs, ys = np.linspace(box[0], box[2], n), np.linspace(box[1], box[3], n)
     return np.array([(x, y) for x in xs for y in ys])
@@ -385,7 +681,7 @@ def at(seen: View) -> list[Problem]:
     px_per_unit = 1080 * config.pixel_height / short / (frame[3] - frame[1])
     now: list[Problem] = []
     texts = [t for t in things if t.text is not None]
-    shapes = [t for t in things if t.outline is not None]
+    shapes = [t for t in things if t.outline is not None or t.triangles is not None]
     groups: dict[str, list[Thing]] = {}
     for t in things:
         groups.setdefault(t.root, []).append(t)
@@ -423,7 +719,8 @@ def at(seen: View) -> list[Problem]:
             if common > 1e-4 and common > 0.05 * min(_area(a.box), _area(b.box)):
                 now.append(Problem("overlap", a, b, "texts overlap"))
     for a in texts:
-        tall = (a.box[3] - a.box[1]) * px_per_unit
+        h_units = a.tall if a.tall > 0 else (a.box[3] - a.box[1])
+        tall = h_units * px_per_unit
         if tall < SMALL:
             now.append(
                 Problem("small", a, None, f"text is {tall:.0f} px tall at 1080p")
@@ -443,7 +740,31 @@ def at(seen: View) -> list[Problem]:
         if a.backdrop is not None:
             backs.append(a.backdrop)
         for s in shapes:
-            if s.outline is None or not _meet(near, s.box):
+            if not _meet(near, s.box):
+                continue
+            if s.triangles is not None and s.depths is not None:
+                if np.isinf(a.depth):
+                    front = np.isinf(s.depths) & (s.order > a.order)
+                else:
+                    front = (
+                        np.isinf(s.depths)
+                        | (s.depths > a.depth + 1e-6)
+                        | ((np.abs(s.depths - a.depth) <= 1e-6) & (s.order > a.order))
+                    )
+                if s.fill >= 0.5 and np.any(front):
+                    share = float(
+                        np.mean(covers_triangles(s.triangles[front], samples))
+                    )
+                    if share > 0.3:
+                        detail = f"{s.kind} is drawn over {share:.0%} of it"
+                        now.append(Problem("covered", a, s, detail))
+                        continue
+                if s.outline is not None and s.stroked and crosses(s.outline, near):
+                    now.append(
+                        Problem("crossing", a, s, f"{s.kind} runs through the text")
+                    )
+                continue
+            if s.outline is None:
                 continue
             under = s.order < a.order
             edged = s.stroked or (s.fill >= 0.2 and s.kind not in BACKDROPS)

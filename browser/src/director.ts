@@ -46,10 +46,13 @@ interface Python {
   drop: (film: number) => void;
 }
 
+const CJK =
+  /[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef\u{20000}-\u{2fa1f}]/u;
 const queue = new Map<number, Run | null>(); // the latest run, or teardown after the active run
 let booted: Promise<Python | null> | undefined;
 let busy = false;
 let failed = false;
+let cjkLoaded = false;
 
 function send(data: FromDirector, transfer: Transferable[] = []): void {
   postMessage(data, transfer);
@@ -113,10 +116,16 @@ async function drain(): Promise<void> {
           continue;
         }
         const { source, scene } = run;
+        const tried: string[] = [];
+        if (!cjkLoaded && CJK.test(source)) {
+          cjkLoaded = true;
+          tried.push("manimgx-fonts-cjk");
+          await micropip.install("manimgx-fonts-cjk").catch(() => {});
+        }
         await py.loadPackagesFromImports(source); // the scene's Pyodide package imports
         // A missing module is installed once, then the ordinary runner reports any failure.
-        const tried: string[] = [];
         for (let missing; (missing = runner(film, source, scene ?? null, feed, tried));) {
+          if (missing === "manimgx-fonts-cjk") cjkLoaded = true;
           tried.push(missing);
           await micropip.install(missing).catch(() => {});
         }

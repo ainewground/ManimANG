@@ -601,6 +601,7 @@ def _set(text: m.Text) -> tuple[list[int], bool]:
         ("नमस्ते", "sans-serif"),
         ("صباح الخير \n تشرفت بمقابلتك", "sans-serif"),
         ("臂猿「黛比」帶著孩子", "sans-serif"),
+        ("안녕하세요 ManimANG", "sans-serif"),
     ],
 )
 def test_every_script_is_set_in_a_font_manimgx_ships(text: str, font: str) -> None:
@@ -612,3 +613,28 @@ def test_every_script_is_set_in_a_font_manimgx_ships(text: str, font: str) -> No
 
 def test_a_system_font_is_read_only_by_name() -> None:
     assert _set(m.Text("Hi", font="Open Sans"))[1]
+
+
+def test_dynamic_cjk_font_discovery_in_browser(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert tc.has_cjk("안녕하세요")
+    assert tc.has_cjk("日本語")
+    assert tc.has_cjk("漢字")
+    assert not tc.has_cjk("Hello World 123")
+    monkeypatch.setattr(tc, "FONTS", (tc.FONTS[0],))
+    monkeypatch.setattr(tc, "_CJK_REQUESTED", False)
+    monkeypatch.setattr(tc.sys, "platform", "emscripten")
+    monkeypatch.setattr(
+        tc,
+        "find_spec",
+        lambda pkg: None if pkg == "manimgx_fonts_cjk" else object(),
+    )
+    with pytest.raises(ModuleNotFoundError, match="manimgx_fonts_cjk") as exc_info:
+        tc.typeset("안녕하세요")
+    assert exc_info.value.name == "manimgx-fonts-cjk"
+    monkeypatch.undo()
+    reloaded = tc.reload_fonts()
+    assert len(reloaded) == 2
+    layout = tc.typeset("안녕하세요")
+    assert len(layout.rows) == 5

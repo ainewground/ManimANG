@@ -216,6 +216,7 @@ class Camera:
         # the mobjects pinned to the screen, as they were given: what they are made of
         # is read every frame (see `fixed_in_frame_mobjects`)
         self._fixed_in_frame: dict[Mobject, None] = {}
+        self._fixed_orientation: dict[Mobject, None] = {}
         self.background_color = config.background_color
         self.background_opacity = config.background_opacity
         """The opacity of the background, from 0 to 1: the configured one unless
@@ -479,6 +480,32 @@ class Camera:
         """
         for mob in mobjects:
             self._fixed_in_frame.pop(mob, None)
+
+    @property
+    def fixed_orientation_mobjects(self) -> set[Mobject]:
+        """The mobjects turned to face the camera in 3D: those given to
+        [`add_fixed_orientation_mobjects`][manimgx.Camera.add_fixed_orientation_mobjects],
+        with every member of their families as they are now."""
+        return {m for mob in self._fixed_orientation for m in mob.get_family()}
+
+    def add_fixed_orientation_mobjects(self, *mobjects: Mobject) -> None:
+        """Keep mobjects turned toward the camera in 3D: each stays at its 3D place and
+        depth, rotated around its center so that it faces the viewer upright.
+
+        Args:
+            *mobjects: The mobjects to orient toward the camera, with their families.
+        """
+        self._fixed_orientation.update(dict.fromkeys(mobjects))
+
+    def remove_fixed_orientation_mobjects(self, *mobjects: Mobject) -> None:
+        """Stop turning mobjects toward the camera in 3D: undo
+        [`add_fixed_orientation_mobjects`][manimgx.Camera.add_fixed_orientation_mobjects].
+
+        Args:
+            *mobjects: The mobjects to unpin from camera orientation, as they were added.
+        """
+        for mob in mobjects:
+            self._fixed_orientation.pop(mob, None)
 
 
 type Act = Callable[[Fraction, "Route | None"], Callable[[], None] | None]
@@ -1691,13 +1718,23 @@ class Scene:
         Returns:
             The speech.
         """
-        from manimgx.audio import Fal, cached
+        from manimgx.audio import Edge, Fal, QwenTTS, SystemVoice, cached
 
         # the scene's voice, as given: a function set on the class is not a method of it
         own = self.__dict__.get("voice", inspect.getattr_static(type(self), "voice"))
         if isinstance(own, staticmethod):
             own = own.__func__
-        return cached(voice or own or Fal(), text, _voice_folder(self))
+        default_voice: Voice
+        env_voice = os.environ.get("MANIMANG_VOICE", "").strip().lower()
+        if env_voice == "edge":
+            default_voice = Edge()
+        elif env_voice == "qwen":
+            default_voice = QwenTTS()
+        elif env_voice == "system":
+            default_voice = SystemVoice()
+        else:
+            default_voice = Fal()
+        return cached(voice or own or default_voice, text, _voice_folder(self))
 
     voice: Voice | None = None
     """Who speaks the scene's [`say`][manimgx.Scene.say]: any
@@ -2197,6 +2234,25 @@ class ThreeDScene(Scene):
         mobject stays pinned with it.
         """
         self.camera.remove_fixed_in_frame_mobjects(*mobjects)
+
+    def add_fixed_orientation_mobjects(self, *mobjects: Mobject) -> None:
+        """Add mobjects that stay at their 3D positions and depths while facing the
+        camera upright (3D billboards), whatever the camera's angles.
+
+        Args:
+            *mobjects: The mobjects to add and orient toward the camera.
+        """
+        self.add(*mobjects)
+        self.camera.add_fixed_orientation_mobjects(*mobjects)
+
+    def remove_fixed_orientation_mobjects(self, *mobjects: Mobject) -> None:
+        """Stop turning mobjects toward the camera, undoing
+        [`add_fixed_orientation_mobjects`][manimgx.ThreeDScene.add_fixed_orientation_mobjects].
+
+        Args:
+            *mobjects: The mobjects to unpin from camera orientation.
+        """
+        self.camera.remove_fixed_orientation_mobjects(*mobjects)
 
 
 def _tracks(

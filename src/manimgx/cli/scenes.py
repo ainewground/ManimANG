@@ -134,7 +134,7 @@ def hints(error: BaseException) -> list[str]:
     """What to write instead, for the mistakes a scene's author makes in names."""
     text = str(error)
     if isinstance(error, AttributeError) and (
-        match := re.search(r"module 'manimgx' has no attribute '(\w+)'", text)
+        match := re.search(r"module 'manim(?:gx|ang)' has no attribute '(\w+)'", text)
     ):
         return [_instead(match.group(1))]
     if isinstance(error, AttributeError) and error.obj is not None and error.name:

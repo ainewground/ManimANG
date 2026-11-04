@@ -27,6 +27,7 @@ from typing import Annotated
 
 import typer
 
+from manimgx.cli.agent import agent
 from manimgx.cli.export import inspect, present, render
 from manimgx.cli.preview import preview
 
@@ -75,6 +76,7 @@ app.command()(render)
 app.command()(inspect)
 app.command()(preview)
 app.command()(present)
+app.command()(agent)
 
 
 def main() -> None:

@@ -5,6 +5,8 @@ labelled group's items; the layout owns each glyph's immutable outline and caret
 import functools
 import os
 import pickle
+import re
+import sys
 import tempfile
 from dataclasses import dataclass
 from importlib.resources import files
@@ -17,14 +19,38 @@ from manimgx import _engine
 from manimgx.caches import Memo, forgets
 from manimgx.drawing.geometry import Shape
 
+_FONT_PACKAGES = ("manimgx_fonts", "manimgx_fonts_cjk")
+_CJK_RE = re.compile(
+    r"[\u1100-\u11ff\u2e80-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef\U00020000-\U0002fa1f]"
+)
+_CJK_REQUESTED = False
+
+
+def has_cjk(text: str) -> bool:
+    """Whether `text` contains Korean Hangul, CJK ideographs, Kana, or CJK symbols."""
+    return bool(_CJK_RE.search(text))
+
+
+def discover_fonts() -> tuple[str, ...]:
+    """Return the directories of all installed ManimGX font packages."""
+    return tuple(
+        str(files(package))
+        for package in _FONT_PACKAGES
+        if find_spec(package) is not None
+    )
+
+
+def reload_fonts() -> tuple[str, ...]:
+    """Refresh `FONTS` after a font package (such as `manimgx-fonts-cjk` in Pyodide) is installed."""
+    global FONTS
+    FONTS = discover_fonts()
+    return FONTS
+
+
 # The fonts ManimGX ships, its font packages' (Noto): with Typst's own, every face a document is
 # set in or falls back to, so text is the same on every machine; a system font only by name. The
-# CJK one is not installed in the browser
-FONTS = tuple(
-    str(files(package))
-    for package in ("manimgx_fonts", "manimgx_fonts_cjk")
-    if find_spec(package) is not None
-)
+# CJK one is loaded on demand in the browser when CJK text is encountered.
+FONTS = discover_fonts()
 TYPST_COMPILATION_FONT_SIZE = 10
 TYPST_TEMPLATE = (
     "#set page(width: auto, height: auto, margin: 0pt, fill: none)\n#set text(size:"
@@ -135,8 +161,20 @@ def typeset(
         package_path: The directory Typst packages are imported from, besides mitex
             (the engine's); None for none but mitex.
     """
+    global _CJK_REQUESTED
     prefix = TYPST_TEMPLATE.format(text_size=text_size, preamble=preamble)
     source = prefix + body + "\n"
+    if len(FONTS) < len(_FONT_PACKAGES) and has_cjk(source):
+        reload_fonts()
+        if (
+            len(FONTS) < len(_FONT_PACKAGES)
+            and sys.platform == "emscripten"
+            and not _CJK_REQUESTED
+        ):
+            _CJK_REQUESTED = True
+            raise ModuleNotFoundError(
+                "No module named 'manimgx_fonts_cjk'", name="manimgx-fonts-cjk"
+            )
     fonts = (*(str(p) for p in font_paths or ()), *FONTS)
     packages = None if package_path is None else str(package_path)
     depends = _files(fonts if packages is None else (*fonts, packages))

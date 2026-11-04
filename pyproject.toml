@@ -49,6 +49,7 @@ dependencies = [
 
 [project.scripts]
 manimgx = "manimgx.cli:main"
+manimang = "manimang.cli:main"
 
 [project.urls]
 Documentation = "https://manimgx.academa.ai/"

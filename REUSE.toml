@@ -5,10 +5,10 @@
 # LICENSE) are their projects', and REUSE leaves them be.
 version = 1
 
-# ManimGX's own: everything the file or a later annotation doesn't claim
+# ManimANG & ManimGX: everything the file or a later annotation doesn't claim
 [[annotations]]
 path = "**"
-SPDX-FileCopyrightText = "2026 Academa, Inc."
+SPDX-FileCopyrightText = ["2026 AI New Ground (https://ainewground.com)", "2026 Academa, Inc."]
 SPDX-License-Identifier = "MIT"
 
 # the corpus: its scenes are mostly Manim CE's documentation's, and ce.mkv their renders by CE

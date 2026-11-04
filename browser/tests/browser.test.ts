@@ -618,6 +618,16 @@ describe("published browser module", () => {
     await settle();
     expect(drops.at(-1)).toBe(6);
     expect(runs.at(-1)).toMatchObject({ film: 7, source: "new connection" });
+    tasks.splice(0).forEach((task) => task());
+    await settle();
+    send({ film: 8, run: { source: "class Korean(Scene): # 안녕하세요", scene: null } });
+    await settle();
+    expect(installs).toContain("manimgx-fonts-cjk");
+    expect(runs.at(-1)).toMatchObject({
+      film: 8,
+      source: "class Korean(Scene): # 안녕하세요",
+      tried: ["manimgx-fonts-cjk"],
+    });
   });
 
   test("the embedded worker reports a terminal boot failure and rejects later runs", async () => {

@@ -111,6 +111,38 @@ You get `Hello3D.mp4`, a 1080p60 video:
   </picture>
 </p>
 
+## ManimANG: Agent-Native Graphics by [AI New Ground](https://ainewground.com)
+
+**ManimANG** (**A**I **N**ew **G**round / **A**gent-**N**ative **G**raphics) is an open-source superset of ManimGX built for autonomous AI video agents, multilingual/Korean math & science education, and 3D layout verification. Every `import manimgx as m` scene works unmodified alongside `import manimang as m` and the `manimang` CLI:
+
+- **3D Layout Diagnostics (`manimang inspect`).** Full 4×4 camera projection and reversed-Z depth checking for `ThreeDScene` — automatically catches 3D meshes (`Sphere`, `Cube`, `Surface`, `Torus`) occluding equations (`covered`), 3D axes/lines piercing labels (`crossing`), perspective-foreshortened text (`small`), off-screen clipping (`cut`), and HUD overlaps (`overlap`).
+- **Dynamic Korean & CJK Web Fonts.** The browser WebGPU + Pyodide player automatically detects Korean Hangul, Chinese Hanzi, and Japanese Kana in scene code and loads `manimgx-fonts-cjk` on demand.
+- **Free & Local Multilingual TTS (`m.Edge`, `m.QwenTTS`, `m.SystemVoice`).** Speak Korean, English, Japanese, Chinese, and 40+ languages in sync with `self.say("여기에 [원]을 그립니다.", m.Create(circle))` — with syllable-level Korean particle separation and zero paid API key required.
+- **Autonomous Self-Correction Agent (`manimang agent`).** Generate or repair scenes in a closed loop (`Prompt → Code → 2D/3D inspect → Self-Correction → MP4`) until `inspect` reports zero layout defects.
+- **Cloud Studio & Pro AI Models.** Build, host, and automate narrated 3D educational videos with no local setup at **[ainewground.com](https://ainewground.com)**.
+
+```python
+import manimang as m
+
+
+class KoreanSphere3D(m.ThreeDScene):
+    voice = (
+        m.Edge()
+    )  # Free neural Korean/multilingual TTS (or m.QwenTTS(), m.SystemVoice())
+
+    def construct(self) -> None:
+        self.set_camera_orientation(phi=65 * m.DEGREES, theta=-45 * m.DEGREES)
+        sphere = m.Sphere(radius=1.2).set_color(m.BLUE)
+        title = m.Text("구의 부피 공식", font_size=36).to_edge(m.UP)
+        formula = m.MathTex(r"V = \frac{4}{3}\pi r^3", font_size=42).to_edge(m.DOWN)
+        self.add_fixed_in_frame_mobjects(title, formula)
+        self.say(
+            "3차원 [구]의 부피 공식은 [다음과] 같습니다.",
+            m.Create(sphere),
+            m.Write(formula),
+        )
+```
+
 ## Why ManimGX?
 
 **An API for 3D video in the age of agents.** Your agent writes Python using

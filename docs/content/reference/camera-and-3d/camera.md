@@ -102,6 +102,18 @@ tone mapping, its bloom and its shadows.
     options:
       heading_level: 3
 
+::: manimgx.Camera.fixed_orientation_mobjects
+    options:
+      heading_level: 3
+
+::: manimgx.Camera.add_fixed_orientation_mobjects
+    options:
+      heading_level: 3
+
+::: manimgx.Camera.remove_fixed_orientation_mobjects
+    options:
+      heading_level: 3
+
 ## Its angles, in 3D
 
 ::: manimgx.Camera.three_d

@@ -11,10 +11,12 @@ The voices ManimGX brings are text-to-speech services', a module each: [`fal`][m
 [`Voice`][manimgx.Voice]).
 """
 
-from manimgx.audio import fal, sound
+from manimgx.audio import fal, sound, tts
 from manimgx.audio.fal import *
 from manimgx.audio.sound import *
+from manimgx.audio.tts import *
 
 __all__ = []
 __all__ += fal.__all__
 __all__ += sound.__all__
+__all__ += tts.__all__
