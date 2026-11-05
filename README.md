@@ -119,6 +119,7 @@ You get `Hello3D.mp4`, a 1080p60 video:
 - **Dynamic Korean & CJK Web Fonts.** The browser WebGPU + Pyodide player automatically detects Korean Hangul, Chinese Hanzi, and Japanese Kana in scene code and loads `manimgx-fonts-cjk` on demand.
 - **Free & Local Multilingual TTS (`m.Edge`, `m.QwenTTS`, `m.SystemVoice`).** Speak Korean, English, Japanese, Chinese, and 40+ languages in sync with `self.say("여기에 [원]을 그립니다.", m.Create(circle))` — with syllable-level Korean particle separation and zero paid API key required.
 - **Autonomous Self-Correction Agent (`manimang agent`).** Generate or repair scenes in a closed loop (`Prompt → Code → 2D/3D inspect → Self-Correction → MP4`) until `inspect` reports zero layout defects.
+- **Flagship 3D Korean Narrated Showcases (`examples/`).** See [`examples/attention_manifold.py`](examples/attention_manifold.py) (Riemannian Transformer self-attention flow on $S^2$), [`examples/schwarzschild_geodesic.py`](examples/schwarzschild_geodesic.py) (general-relativistic null geodesics & photon sphere on Flamm's paraboloid), and [`examples/schrodinger_harmonic.py`](examples/schrodinger_harmonic.py) (3D complex-phase quantum harmonic oscillator & Glauber coherent states).
 - **Cloud Studio & Pro AI Models.** Build, host, and automate narrated 3D educational videos with no local setup at **[ainewground.com](https://ainewground.com)**.
 
 ```python

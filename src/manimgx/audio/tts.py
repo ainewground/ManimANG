@@ -5,6 +5,7 @@ macOS `say`, Linux `espeak-ng`, and Windows `System.Speech`)."""
 
 import asyncio
 import base64
+import importlib
 import json
 import os
 import re
@@ -127,7 +128,6 @@ class Edge:
     def __init__(
         self,
         voice: str = "auto",
-        /,
         **settings: Unpack[EdgeSettings],
     ) -> None:
         object.__setattr__(self, "voice", voice)
@@ -161,23 +161,33 @@ def _synthesize_edge(
 ) -> tuple[bytes, list[dict[str, object]]]:
     """Synthesize `text` with `edge_tts` (Python module or CLI) and return `(audio, stamps)`."""
     try:
-        import edge_tts  # ty: ignore[unresolved-import]
+        edge_tts = importlib.import_module("edge_tts")
     except ModuleNotFoundError:
         edge_tts = None
 
     if edge_tts is not None:
 
         async def _run() -> tuple[bytes, list[dict[str, object]]]:
-            communicate = edge_tts.Communicate(
-                text, voice, rate=rate, volume=volume, pitch=pitch
-            )
+            try:
+                communicate = edge_tts.Communicate(
+                    text,
+                    voice,
+                    rate=rate,
+                    volume=volume,
+                    pitch=pitch,
+                    boundary="WordBoundary",
+                )
+            except TypeError:
+                communicate = edge_tts.Communicate(
+                    text, voice, rate=rate, volume=volume, pitch=pitch
+                )
             chunks: list[bytes] = []
             stamps: list[dict[str, object]] = []
             async for item in communicate.stream():
                 kind = item.get("type")
                 if kind == "audio" and isinstance(item.get("data"), bytes):
                     chunks.append(item["data"])
-                elif kind == "WordBoundary":
+                elif kind in ("WordBoundary", "SentenceBoundary"):
                     offset_s = float(item.get("offset", 0)) / 1e7
                     duration_s = float(item.get("duration", 0)) / 1e7
                     stamps.append(
@@ -196,25 +206,31 @@ def _synthesize_edge(
         with tempfile.TemporaryDirectory() as tmp:
             media = Path(tmp) / "speech.mp3"
             subs = Path(tmp) / "speech.vtt"
-            subprocess.run(
-                [
-                    cli,
-                    f"--voice={voice}",
-                    f"--rate={rate}",
-                    f"--volume={volume}",
-                    f"--pitch={pitch}",
-                    f"--text={text}",
-                    f"--write-media={media}",
-                    f"--write-subtitles={subs}",
-                ],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            stamps = (
-                _parse_vtt(subs.read_text(encoding="utf-8")) if subs.exists() else []
-            )
-            return media.read_bytes(), stamps
+            try:
+                subprocess.run(
+                    [
+                        cli,
+                        f"--voice={voice}",
+                        f"--rate={rate}",
+                        f"--volume={volume}",
+                        f"--pitch={pitch}",
+                        f"--text={text}",
+                        f"--write-media={media}",
+                        f"--write-subtitles={subs}",
+                    ],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                pass
+            else:
+                stamps = (
+                    _parse_vtt(subs.read_text(encoding="utf-8"))
+                    if subs.exists()
+                    else []
+                )
+                return media.read_bytes(), stamps
 
     raise RuntimeError(
         "edge-tts is not installed: run `uv pip install edge-tts` (or `pip install"
@@ -320,7 +336,6 @@ class QwenTTS:
     def __init__(
         self,
         voice: str = "auto",
-        /,
         *,
         key: str | None = None,
         **settings: Unpack[QwenTTSSettings],
@@ -509,7 +524,6 @@ class SystemVoice:
     def __init__(
         self,
         voice: str = "auto",
-        /,
         **settings: Unpack[SystemVoiceSettings],
     ) -> None:
         object.__setattr__(self, "voice", voice)

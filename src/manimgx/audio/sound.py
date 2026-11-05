@@ -575,9 +575,23 @@ def lines(speech: Speech, width: int = 42) -> list[tuple[float, float, str]]:
     a sentence does. A line is shown from when it begins to be said until the next one does,
     or, ending a sentence, until it has been said; in seconds from the speech's start."""
     text = speech.text
+    raw_pieces = _pieces(text)
+    if " " in text and any(0xAC00 <= ord(c) <= 0xD7AF for c in text):
+        grouped: list[tuple[int, int, bool]] = []
+        for a, b, ends in raw_pieces:
+            if (
+                grouped
+                and not grouped[-1][2]
+                and grouped[-1][1] == a
+                and _columns(text[grouped[-1][0] : b]) <= width
+            ):
+                grouped[-1] = (grouped[-1][0], b, ends)
+            else:
+                grouped.append((a, b, ends))
+        raw_pieces = grouped
     # each line's characters, and whether a sentence ends it
     cut: list[tuple[int, int, bool]] = []
-    for a, b, ends in _pieces(text):
+    for a, b, ends in raw_pieces:
         if cut and not cut[-1][2] and _columns(text[cut[-1][0] : b]) <= width:
             cut[-1] = (cut[-1][0], b, ends)
         else:

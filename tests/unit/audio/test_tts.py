@@ -146,3 +146,18 @@ class TestQwenAndSystemProviders:
         film = OfflineScene().render()
         assert len(film.clips) == 1
         assert film.clips[0].sound.duration > 0
+
+    def test_korean_captions_keep_eojeols_whole(self) -> None:
+        from manimgx.audio.sound import lines
+
+        text = (
+            "트랜스포머의 토큰 임베딩들이 3차원 구면 다양체 위에 놓여 있고, "
+            "자기 어텐션 수식이 토큰 사이의 연결 강도를 결정합니다."
+        )
+        speech = m.Speech(_fake_wav(4.0), text=text)
+        captions = [caption for _, _, caption in lines(speech)]
+        assert captions == [
+            "트랜스포머의 토큰 임베딩들이 3차원 구면",
+            "다양체 위에 놓여 있고, 자기 어텐션 수식이",
+            "토큰 사이의 연결 강도를 결정합니다.",
+        ]

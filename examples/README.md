@@ -1,7 +1,7 @@
 # Examples
 
-Forty-eight short films made with ManimGX, each one Python file that needs only numpy. Every
-number on screen is computed as the film plays.
+Fifty-one short films made with ManimGX and ManimANG, each one Python file that needs only
+numpy. Every number on screen is computed as the film plays.
 
 With ManimGX installed (`pip install manimgx`), render one at 1920×1080, 60 fps:
 
@@ -128,6 +128,12 @@ manimgx render examples/quadratic_formula.py   # writes examples/QuadraticFormul
 - [A coral of random walkers](dla_coral.py): 18,000 random walkers wander until they touch
   the cluster and stick. The coral they build has fractal dimension 2.5, measured from how its
   mass grows.
+- [Black hole photon sphere](schwarzschild_geodesic.py): Light bends, orbits at 1.5
+  Schwarzschild radii, or falls past the event horizon on Flamm's paraboloid. Exact
+  general-relativistic null geodesics are integrated with Korean narration.
+- [Quantum harmonic coherent state](schrodinger_harmonic.py): A stationary Hermite-Gaussian
+  eigenstate spins in complex phase space while a Glauber coherent wavepacket oscillates like
+  a pendulum. Floor projections track probability density and minimal Heisenberg uncertainty.
 
 ## Engineering
 
@@ -149,3 +155,6 @@ manimgx render examples/quadratic_formula.py   # writes examples/QuadraticFormul
 - [The Game of Life in spacetime](life_spacetime.py): Stack the Game of Life's generations,
   and the glider gun's gliders are staircases. They climb at c/4, a quarter of Life's top
   speed.
+- [Transformer attention on the sphere](attention_manifold.py): Sixteen semantic tokens flow
+  across a Riemann sphere under softmax self-attention as temperature cools. Four attention
+  heads form semantic clusters while Shannon entropy drops in real time.
