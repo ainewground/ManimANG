@@ -86,6 +86,7 @@ jobs:
 
   wheel:
     name: Build and link on ${{ matrix.os }}
+    if: github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -140,7 +141,7 @@ jobs:
   test:
     name: Test with Python ${{ matrix.python-version }} on ${{ matrix.os }}
     needs: wheel
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.wheel.result == 'success' }}
     strategy:
       fail-fast: false
       matrix:
@@ -223,7 +224,7 @@ jobs:
     name: Combine the coverage
     needs: test
     # a job that failed leaves the others' coverage to report
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && needs.test.result != 'skipped' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
