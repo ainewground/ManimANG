@@ -24,6 +24,7 @@ CONFIG = tomllib.loads(
 HOST = urlsplit(CONFIG["project"]["site_url"]).netloc
 RAW_HOST = "raw.githubusercontent.com"
 RAW_SHOWCASE = "/academa-labs/manimgx/main/docs/content/showcase/"
+RAW_SHOWCASE_ANG = "/ainewground/ManimANG/main/docs/content/showcase/"
 # an element's start tag (a quoted value may hold ">"), and one of its URLs, quoted
 TAG = re.compile(r"""<[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>""")
 URL = re.compile(r"""(\s(src|srcset|href|poster)\s*=\s*)(["'])(.*?)\3""", re.DOTALL)
@@ -32,9 +33,11 @@ URL = re.compile(r"""(\s(src|srcset|href|poster)\s*=\s*)(["'])(.*?)\3""", re.DOT
 def local(url: str) -> str:
     """A site URL or the repository's raw showcase asset, as its path on the site."""
     parts = urlsplit(url)
-    if parts.netloc == RAW_HOST and parts.path.startswith(RAW_SHOWCASE):
-        path = "/showcase/" + parts.path.removeprefix(RAW_SHOWCASE)
-        return urlunsplit(("", "", path, parts.query, parts.fragment))
+    if parts.netloc == RAW_HOST:
+        for prefix in (RAW_SHOWCASE, RAW_SHOWCASE_ANG):
+            if parts.path.startswith(prefix):
+                path = "/showcase/" + parts.path.removeprefix(prefix)
+                return urlunsplit(("", "", path, parts.query, parts.fragment))
     if parts.netloc != HOST:
         return url
     return urlunsplit(("", "", parts.path or "/", parts.query, parts.fragment))

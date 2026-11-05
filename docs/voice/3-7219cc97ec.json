@@ -1,0 +1,18 @@
+{
+ "text": "3\ucc28\uc6d0 \uad6c\uc758 \ubd80\ud53c \uacf5\uc2dd\uc740 \ub2e4\uc74c\uacfc \uac19\uc2b5\ub2c8\ub2e4.",
+ "voice": "QwenTTS('Aiden', language='Korean', seed=20261017, speed=1.18)",
+ "suffix": ".mp3",
+ "audio": "34c0c31131f5c4d1",
+ "edit": {
+  "start": 0.0,
+  "end": null,
+  "speed": 1.0,
+  "loop": null,
+  "gain": 0.0,
+  "fade_in": 0.0,
+  "fade_out": 0.0,
+  "pan": 0.0,
+  "duck": 0.0
+ },
+ "words": []
+}

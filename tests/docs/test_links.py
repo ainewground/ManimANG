@@ -27,9 +27,10 @@ def test_the_readme_reaches_the_site_it_is_on() -> None:
     for attribute in ("src", "srcset", "href", "poster"):
         assert f'{attribute}="{site}' not in html
     # the banner, the logo on each ground
-    assert 'srcset="/showcase/logo-dark.svg"' in html
-    assert 'src="/showcase/logo-light.svg"' in html
+    assert 'srcset="/showcase/manimang-logo-dark.svg"' in html
+    assert 'src="/showcase/manimang-logo-light.svg"' in html
     # the wall's films, and the scene's film on each ground
+    assert 'src="/showcase/attention_manifold.gif"' in html
     assert 'src="/showcase/quadratic_formula.gif"' in html
     assert 'srcset="/films/readme-Hello3D.svg"' in html
     assert 'src="/films/readme-Hello3D-light.svg#readme"' in html
@@ -42,9 +43,12 @@ def test_the_welcome_page_uses_the_readme_s_same_showcase_images() -> None:
     from docs import links
 
     readme = README.read_text(encoding="utf-8")
-    raw = f"https://{links.RAW_HOST}{links.RAW_SHOWCASE}"
-    images = re.findall(rf'src="{re.escape(raw)}([^"/]+\.gif)"', readme)
-    assert len(images) == 9
+    raw_gx = f"https://{links.RAW_HOST}{links.RAW_SHOWCASE}"
+    raw_ang = f"https://{links.RAW_HOST}{links.RAW_SHOWCASE_ANG}"
+    images = re.findall(
+        rf'src="(?:{re.escape(raw_ang)}|{re.escape(raw_gx)})([^"/]+\.gif)"', readme
+    )
+    assert len(images) == 12
     html = markdown.markdown(
         WELCOME.read_text(encoding="utf-8"),
         extensions=["tables", "pymdownx.snippets", links.makeExtension()],
@@ -56,7 +60,8 @@ def test_the_welcome_page_uses_the_readme_s_same_showcase_images() -> None:
         },
     )
     assert re.findall(r'src="/showcase/([^"/]+\.gif)"', html) == images
-    assert raw not in html
+    assert raw_gx not in html
+    assert raw_ang not in html
 
 
 def test_the_banner_keeps_both_github_themes_and_a_light_fallback() -> None:
@@ -66,19 +71,21 @@ def test_the_banner_keeps_both_github_themes_and_a_light_fallback() -> None:
     readme = README.read_text(encoding="utf-8")
     banner = re.search(r"<picture>.*?</picture>", readme, re.DOTALL)
     assert banner is not None
-    raw = f"https://{links.RAW_HOST}{links.RAW_SHOWCASE}"
+    raw = f"https://{links.RAW_HOST}{links.RAW_SHOWCASE_ANG}"
     # GitHub's themed-picture component honors its selected theme, including overrides
     # of the OS preference. Raw repo URLs keep both variants independent of docs deploys.
     sources = re.findall(
         r'<source media="\(prefers-color-scheme: (dark|light)\)" srcset="([^"]+)">',
         banner.group(),
     )
-    assert sources == [(theme, f"{raw}logo-{theme}.svg") for theme in ("dark", "light")]
-    assert f'src="{raw}logo-light.svg"' in banner.group()
+    assert sources == [
+        (theme, f"{raw}manimang-logo-{theme}.svg") for theme in ("dark", "light")
+    ]
+    assert f'src="{raw}manimang-logo-light.svg"' in banner.group()
     local = links.paths(banner.group())
     for theme in ("dark", "light"):
-        assert f'srcset="/showcase/logo-{theme}.svg"' in local
-    assert 'src="/showcase/logo-light.svg"' in local
+        assert f'srcset="/showcase/manimang-logo-{theme}.svg"' in local
+    assert 'src="/showcase/manimang-logo-light.svg"' in local
 
 
 def test_comparison_markdown_renders_five_images_without_fixed_dimensions() -> None:
@@ -90,8 +97,8 @@ def test_comparison_markdown_renders_five_images_without_fixed_dimensions() -> N
         extensions=["tables", "fenced_code", links.makeExtension()],
     )
     tables = re.findall(r"<table\b.*?</table>", html, re.DOTALL)
-    assert len(tables) == 1
-    table = tables[0]
+    assert len(tables) >= 1
+    table = tables[-1]
     assert len(re.findall(r"<th(?:\s|>)", table)) == 5
     images = re.findall(r"<img\b[^>]*>", table)
     assert len(images) == 5

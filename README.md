@@ -1,32 +1,51 @@
 <p align="center">
-  <a href="https://manimgx.academa.ai">
+  <a href="https://ainewground.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/academa-labs/manimgx/main/docs/content/showcase/logo-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/academa-labs/manimgx/main/docs/content/showcase/logo-light.svg">
-      <img alt="ManimGX" src="https://raw.githubusercontent.com/academa-labs/manimgx/main/docs/content/showcase/logo-light.svg" width="640">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/manimang-logo-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/manimang-logo-light.svg">
+      <img alt="ManimANG" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/manimang-logo-light.svg" width="680">
     </picture>
   </a>
 </p>
 
 <p align="center">
-  <b>Blazingly fast 3D animation engine for agents, compatible with <a href="https://www.manim.community">Manim CE's API</a>.</b><br>
-  Powered by Rust and wgpu. Install with a prompt or pip. Run in the browser.
+  <b>Agent-Native 3D Mathematical &amp; Scientific Animation Engine by <a href="https://ainewground.com">AI New Ground</a>.</b><br>
+  <b>자율형 AI 영상 에이전트 · 3D 시공간 레이아웃 검증(<code>manimang inspect</code>) · 한국어/다국어 로컬 음성 동기화(<code>Qwen3-TTS</code> / <code>Edge</code>)를 탑재한 초고속 Rust + wgpu 3D 애니메이션 엔진</b><br>
+  Built on <a href="https://github.com/academa-labs/manimgx">ManimGX</a> and 100% compatible with <a href="https://www.manim.community">Manim CE's API</a>.
 </p>
 
 <p align="center">
-  <b><a href="https://manimgx.academa.ai">Documentation</a></b> ·
-  <a href="https://manimgx.academa.ai/user-guide/quickstart/">Quickstart</a> ·
-  <a href="https://manimgx.academa.ai/gallery/">Examples</a> ·
+  <b><a href="https://ainewground.com">AI New Ground</a></b> ·
+  <a href="https://github.com/ainewground/ManimANG#manimang-flagship-3d-pbr-showcases">Flagship 3D Showcases</a> ·
+  <a href="https://github.com/ainewground/ManimANG#why-manimang">Why ManimANG?</a> ·
+  <a href="https://github.com/ainewground/ManimANG#get-started">Quickstart</a> ·
   <a href="https://manimgx.academa.ai/reference/">API Reference</a>
 </p>
 
 <p align="center">
+  <a href="https://github.com/ainewground/ManimANG"><img alt="ManimANG by AI New Ground" src="https://img.shields.io/badge/ManimANG-AI%20New%20Ground-38bdf8"></a>
   <a href="https://coverage.manimgx.academa.ai"><img alt="Test coverage" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fcoverage.manimgx.academa.ai%2Fbadge.json&label=coverage"></a>
   <a href="https://pypi.org/project/manimgx/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/manimgx?color=58c4dd&label=PyPI"></a>
   <a href="https://www.npmjs.com/package/manimgx"><img alt="npm version" src="https://img.shields.io/npm/v/manimgx?color=58c4dd"></a>
-  <a href="https://pepy.tech/projects/manimgx"><img alt="PyPI total downloads" src="https://img.shields.io/pepy/dt/manimgx?color=58c4dd&label=PyPI%20downloads"></a>
-  <a href="https://www.npmjs.com/package/manimgx"><img alt="npm monthly downloads" src="https://img.shields.io/npm/dm/manimgx?color=58c4dd&label=npm%20downloads"></a>
 </p>
+
+## ManimANG Flagship 3D PBR Showcases
+
+Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material`)**, **real shadow maps (`m.SunLight(shadows=True)`)**, **image-based studio softbox lighting (`m.EnvironmentLight`)**, **AgX filmic tone mapping**, **SSAO contact shadows**, **3D cylindrical `tube()` meshes**, **0 layout defects verified by `manimang inspect`**, and **Korean word-level narration (`m.QwenTTS("Aiden")` — 지피티쌤 보이스)**:
+
+<p align="center">
+  <a href="https://github.com/ainewground/ManimANG/blob/main/examples/attention_manifold.py"><img alt="Attention as gravity on the unit sphere: token embeddings cluster on a dielectric glass Riemann sphere" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/attention_manifold.gif" width="32%"></a>
+  <a href="https://github.com/ainewground/ManimANG/blob/main/examples/schwarzschild_geodesic.py"><img alt="Schwarzschild black hole gravitational lensing and golden photon sphere on Flamm's paraboloid" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/schwarzschild_geodesic.gif" width="32%"></a>
+  <a href="https://github.com/ainewground/ManimANG/blob/main/examples/schrodinger_harmonic.py"><img alt="Quantum harmonic oscillator 3D complex corkscrew wavepacket and Ehrenfest oscillation casting real shadows" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/schrodinger_harmonic.gif" width="32%"></a>
+</p>
+
+| Flagship Film | Mathematical &amp; Physical Model | ManimANG Studio PBR &amp; Choreography Highlights |
+| :--- | :--- | :--- |
+| **[`attention_manifold.py`](https://github.com/ainewground/ManimANG/blob/main/examples/attention_manifold.py)**<br>구면 다양체 위의 어텐션 동역학 | Riemannian continuous-time Transformer flow on $S^2$:<br>$A_{ij} = \operatorname{softmax}_j(\langle Qx_i, Kx_j\rangle / \tau)$ | Translucent dielectric glass Riemann sphere (`Material(roughness=0.14)`), 8 ceramic/metallic token orbs, 10 dynamic 3D cylindrical geodesic tubes, live 2D Shannon entropy curve $H(A)$ |
+| **[`schwarzschild_geodesic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schwarzschild_geodesic.py)**<br>블랙홀 중력 렌즈와 광자 구 | General-relativistic null geodesics on Flamm's paraboloid:<br>$(du/d\varphi)^2 = 1/b^2 - u^2(1 - r_s u)$, $b_c = \frac{3\sqrt{3}}{2}r_s$ | Deep gravitational funnel mesh with warm throat `PointLight`, golden 3D photon-sphere torus ($r_{\text{ph}} = 1.5\,r_s$), 7 tubular photon trajectories + live $V_{\text{eff}}(r)$ barrier plot |
+| **[`schrodinger_harmonic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schrodinger_harmonic.py)**<br>양자 조화 진동자와 결맞음 파속 | 1D TDSE coherent wavepacket ($N=12$ Hermite-Gauss basis):<br>$\langle x \rangle(t) = \sqrt{2}\,\alpha_0 \cos(\omega t)$ | Gleaming 3D cylindrical complex corkscrew $\Psi(x,t) = (x, \operatorname{Re}\Psi, \operatorname{Im}\Psi)$ casting real shadows onto a studio floor beside the 3D probability ridge $|\Psi|^2$ and $(\langle x\rangle, \langle p\rangle)$ orbit |
+
+### Classic Mathematical &amp; Physical Gallery
 
 <p align="center">
   <a href="https://github.com/academa-labs/manimgx/blob/main/examples/quadratic_formula.py"><img alt="The quadratic formula: completing a square by moving colored rectangles and equation terms" src="https://raw.githubusercontent.com/academa-labs/manimgx/main/docs/content/showcase/quadratic_formula.gif" width="32%"></a>
@@ -42,7 +61,32 @@
   <a href="https://github.com/academa-labs/manimgx/blob/main/examples/catenoid_helicoid.py"><img alt="A rainbow helicoid bends into a catenoid while preserving its intrinsic curvature" src="https://raw.githubusercontent.com/academa-labs/manimgx/main/docs/content/showcase/catenoid_helicoid.gif" width="32%"></a>
 </p>
 
-**36.2 seconds of video, rendered in 3.08 seconds.** Across five scenes at 1080p60 on an Apple M4 Pro, ManimGX is **90.6× faster than ManimCE**, **11.5× faster than ManimGL**, and **18.7× faster than Blender Workbench**, from launch to finished MP4. [How it was measured](https://github.com/academa-labs/manimgx/tree/main/benchmarks): the scenes, the settings and every run.
+## Why ManimANG?
+
+**ManimANG** (**A**I **N**ew **G**round / **A**gent-**N**ative **G**raphics) extends ManimGX's Rust + `wgpu` engine into a complete, self-verifying production pipeline for AI video agents and Korean/multilingual STEM creators:
+
+| Capability | ManimCE | ManimGL | ManimGX | **ManimANG (`ainewground/ManimANG`)** |
+| :--- | :---: | :---: | :---: | :---: |
+| **1080p60 5-Scene Render Speed (Apple M4 Pro)** | 278.83 s (1×) | 35.28 s (7.9×) | 3.08 s (90.6×) | **3.08 s (90.6×)** |
+| **GPU Backend &amp; Filament Studio PBR** | Cairo / ModernGL | OpenGL | Rust `wgpu` + Filament PBR | **Rust `wgpu` + Filament PBR + 3D Tube Workflows** |
+| **2D Layout Diagnostics (`inspect`)** | — | — | 2D only (`Scene`) | **2D + Full 3D (`ThreeDScene`)** |
+| **3D Depth &amp; Occlusion Inspector (`manimang inspect`)** | — | — | — | **4×4 Projection + Reversed-Z Depth (`covered`, `crossing`, `small`, `cut`, `overlap`)** |
+| **Closed-Loop Self-Correcting Agent (`manimang agent`)** | — | — | — | **Autonomous `Prompt → Code → 3D Inspect → Repair → MP4`** |
+| **Free / Local Korean &amp; Multilingual TTS** | External only | External only | Paid API (`FAL_KEY`) | **Local MLX `Qwen3-TTS` (`Aiden` 지피티쌤 보이스), Free `Edge`, Offline `SystemVoice`** |
+| **Korean Syllable Span Sync &amp; Eojeol `.srt` Captions** | — | — | Space-split only | **Syllable-level `[원]을` particle split + Eojeol-preserving (`keep-all`) `.srt`** |
+| **Browser WebGPU + Dynamic CJK Font Loading** | — | — | Latin default | **Auto-detects Korean/CJK &amp; loads `manimgx-fonts-cjk` on demand** |
+
+### Key ManimANG Innovations
+
+- **3D Layout &amp; Depth Diagnostics (`manimang inspect`).** Projects every 3D `MeshMobject` (`Sphere`, `Cube`, `Surface`, `Torus`, `Cylinder`, 3D `tube`) through the camera's 4×4 view-projection matrix with reversed-Z depth ordering — automatically catching 3D meshes occluding equations (`covered`), 3D lines/rims piercing labels (`crossing`), perspective-foreshortened text (`small`), off-screen clipping (`cut`), and HUD collisions (`overlap`).
+- **Signature Korean &amp; Multilingual Voice Pipeline (`m.QwenTTS`, `m.Edge`, `m.SystemVoice`).** First-class support for local Apple Silicon MLX `Qwen3-TTS` (`m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)` with automatic internal breath-pause compaction and consonant safety margins), Microsoft Edge neural TTS (`m.Edge()`), and 100% offline OS TTS (`m.SystemVoice()`). Bracketed Korean spans like `self.say("3차원 [구면 다양체] 위의 흐름입니다.", m.Create(sphere))` synchronize animations to the exact noun without its attached particle, while `.srt` subtitles never split a Korean Eojeol mid-word.
+- **Autonomous Self-Correction Agent (`manimang agent`).** Generates or repairs Manim scenes in a closed verification loop (`Prompt → Code → 2D/3D inspect → Self-Correction → MP4`) until `manimang inspect` reports **0 layout problems**.
+- **Dynamic Browser CJK Web Fonts.** The browser WebGPU + Pyodide worker automatically detects Korean Hangul, Chinese Hanzi, and Japanese Kana in scene code and loads `manimgx-fonts-cjk` on demand.
+- **Cloud Studio &amp; Pro AI Models.** Build, host, and automate narrated 3D educational videos with zero local setup at **[ainewground.com](https://ainewground.com)**.
+
+## Benchmark Speed &amp; Visual Quality ("Compare the Same Scene")
+
+**36.2 seconds of video, rendered in 3.08 seconds.** Across five scenes at 1080p60 on an Apple M4 Pro, the Rust + `wgpu` engine under ManimANG / ManimGX is **90.6× faster than ManimCE**, **11.5× faster than ManimGL**, and **18.7× faster than Blender Workbench**, from launch to finished MP4. [How it was measured](https://github.com/academa-labs/manimgx/tree/main/benchmarks): the scenes, the settings and every run.
 
 <figure class="mx-benchmark">
   <picture>
@@ -53,7 +97,7 @@
   <p align="center"><sub>All engines use the fastest encoding preset available. Lower is better.</sub></p>
 </figure>
 
-**Compare the same scene.** Linked rings at 2.5 seconds, rendered by each engine.
+**Compare the same scene.** Linked rings at 2.5 seconds, rendered by each engine:
 
 | ManimGX | ManimCE | ManimGL | Blender Workbench | Blender EEVEE |
 | :---: | :---: | :---: | :---: | :---: |
@@ -61,26 +105,65 @@
 
 ## Get started
 
-**With a prompt.** Paste into Claude Code, Codex, or Cursor. Your agent handles setup:
-
-```text
-Follow https://manimgx.academa.ai/llms.txt.
-Install ManimGX, make a 3D animation of the solar system, and open it.
-```
-
-**With pip.** Install on macOS, Linux or Windows with Python 3.13+:
+**With pip / uv.** Install on macOS, Linux or Windows with Python 3.13+:
 
 ```sh
 pip install manimgx
 ```
 
-Fonts, typesetting and video encoding are included.
-For editor setup and a guided first animation, follow the
-[Quickstart](https://manimgx.academa.ai/user-guide/quickstart/).
+Both `import manimang as m` and `import manimgx as m` (as well as the `manimang` and `manimgx` CLIs) are available out of the box. Fonts, Typst math typesetting, and H.264 video encoding are bundled.
 
-## From Python to MP4
+**With a prompt.** Paste into Claude Code, Codex, Antigravity, or Cursor:
 
-Save this as `scene.py`:
+```text
+Follow https://manimgx.academa.ai/llms.txt.
+Install ManimANG, make a 3D animation of the solar system, and open it.
+```
+
+## From Python to Narrated 3D Studio PBR Video
+
+Save this as `korean_sphere.py`:
+
+```python
+import manimang as m
+
+
+class KoreanSphere3D(m.ThreeDScene):
+    # Signature 지피티쌤 local MLX Qwen3-TTS voice (or m.Edge(), m.SystemVoice())
+    voice = m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)
+
+    def construct(self) -> None:
+        self.camera.tone_mapping = "agx"
+        self.camera.ambient_occlusion = 1.0
+        self.camera.bloom = 0.08
+        self.set_camera_orientation(phi=65 * m.DEGREES, theta=-45 * m.DEGREES)
+        self.add(
+            m.EnvironmentLight(intensity=0.8),
+            m.SunLight(4 * m.UP + 3 * m.LEFT + 5 * m.OUT, intensity=1.3, shadows=True),
+        )
+        sphere = (
+            m.Sphere(radius=1.3, resolution=(48, 32))
+            .set_color("#38bdf8")
+            .set_material(m.Material(metallic=0.2, roughness=0.18, reflectance=0.8))
+        )
+        title = m.Text("구의 부피 공식", font_size=34, weight="BOLD").to_corner(m.UL)
+        formula = m.MathTex(r"V = \frac{4}{3}\pi r^3", font_size=40).to_corner(m.UR)
+        self.add_fixed_in_frame_mobjects(title, formula)
+        self.say(
+            "3차원 [구]의 부피 공식은 [다음과] 같습니다.",
+            m.Create(sphere),
+            m.Write(formula),
+        )
+```
+
+Verify 3D layout &amp; render to `1080p60` MP4 + `.srt` subtitles:
+
+```sh
+manimang inspect korean_sphere.py
+manimang render korean_sphere.py
+```
+
+Or render a minimal 3D scene (`scene.py`):
 
 ```python
 import manimgx as m
@@ -95,13 +178,9 @@ class Hello3D(m.ThreeDScene):
         self.wait(4)
 ```
 
-Render it:
-
 ```sh
 manimgx render scene.py
 ```
-
-You get `Hello3D.mp4`, a 1080p60 video:
 
 <p align="center">
   <picture>
@@ -111,125 +190,39 @@ You get `Hello3D.mp4`, a 1080p60 video:
   </picture>
 </p>
 
-## ManimANG: Agent-Native Graphics by [AI New Ground](https://ainewground.com)
+## Architecture &amp; Core Engine Features
 
-**ManimANG** (**A**I **N**ew **G**round / **A**gent-**N**ative **G**raphics) is an open-source superset of ManimGX built for autonomous AI video agents, multilingual/Korean math & science education, and 3D layout verification. Every `import manimgx as m` scene works unmodified alongside `import manimang as m` and the `manimang` CLI:
-
-- **3D Layout Diagnostics (`manimang inspect`).** Full 4×4 camera projection and reversed-Z depth checking for `ThreeDScene` — automatically catches 3D meshes (`Sphere`, `Cube`, `Surface`, `Torus`) occluding equations (`covered`), 3D axes/lines piercing labels (`crossing`), perspective-foreshortened text (`small`), off-screen clipping (`cut`), and HUD overlaps (`overlap`).
-- **Dynamic Korean & CJK Web Fonts.** The browser WebGPU + Pyodide player automatically detects Korean Hangul, Chinese Hanzi, and Japanese Kana in scene code and loads `manimgx-fonts-cjk` on demand.
-- **Free & Local Multilingual TTS (`m.Edge`, `m.QwenTTS`, `m.SystemVoice`).** Speak Korean, English, Japanese, Chinese, and 40+ languages in sync with `self.say("여기에 [원]을 그립니다.", m.Create(circle))` — with syllable-level Korean particle separation and zero paid API key required.
-- **Autonomous Self-Correction Agent (`manimang agent`).** Generate or repair scenes in a closed loop (`Prompt → Code → 2D/3D inspect → Self-Correction → MP4`) until `inspect` reports zero layout defects.
-- **Flagship 3D Korean Narrated Showcases (`examples/`).** See [`examples/attention_manifold.py`](examples/attention_manifold.py) (Riemannian Transformer self-attention flow on $S^2$), [`examples/schwarzschild_geodesic.py`](examples/schwarzschild_geodesic.py) (general-relativistic null geodesics & photon sphere on Flamm's paraboloid), and [`examples/schrodinger_harmonic.py`](examples/schrodinger_harmonic.py) (3D complex-phase quantum harmonic oscillator & Glauber coherent states).
-- **Cloud Studio & Pro AI Models.** Build, host, and automate narrated 3D educational videos with no local setup at **[ainewground.com](https://ainewground.com)**.
-
-```python
-import manimang as m
-
-
-class KoreanSphere3D(m.ThreeDScene):
-    voice = (
-        m.Edge()
-    )  # Free neural Korean/multilingual TTS (or m.QwenTTS(), m.SystemVoice())
-
-    def construct(self) -> None:
-        self.set_camera_orientation(phi=65 * m.DEGREES, theta=-45 * m.DEGREES)
-        sphere = m.Sphere(radius=1.2).set_color(m.BLUE)
-        title = m.Text("구의 부피 공식", font_size=36).to_edge(m.UP)
-        formula = m.MathTex(r"V = \frac{4}{3}\pi r^3", font_size=42).to_edge(m.DOWN)
-        self.add_fixed_in_frame_mobjects(title, formula)
-        self.say(
-            "3차원 [구]의 부피 공식은 [다음과] 같습니다.",
-            m.Create(sphere),
-            m.Write(formula),
-        )
-```
-
-## Why ManimGX?
-
-**An API for 3D video in the age of agents.** Your agent writes Python using
-[Manim CE's API](https://www.manim.community).
-ManimGX's Rust + wgpu engine renders the MP4, blazingly fast.
-
-- **Fully statically typed.** Keyword arguments and `.animate` chains included.
-- **2D and 3D together.** Surfaces, meshes and moving cameras alongside text, equations
-  and plots.
-- **Runs in the browser.** `npm install manimgx`. [Pyodide](https://pyodide.org) runs
-  Python in a Web Worker; WebGPU renders the scene.
-  [Embed a scene](https://manimgx.academa.ai/user-guide/rendering/#embed-in-a-web-page) with no render server.
-- **Agent feedback.** [`manimgx inspect`](https://manimgx.academa.ai/user-guide/rendering/#inspect): storyboards and 2D layout checks, at play endings or times you choose.
-- **Text and math.** Write LaTeX or Typst. No LaTeX installation needed.
-- **Speech in sync.** [Match animations to spoken words](https://manimgx.academa.ai/user-guide/sound-and-voice/)
-  with `self.say()`.
+- **Fully statically typed.** Keyword arguments and `.animate` chains included, checked by `ty` and `ruff`.
+- **2D and 3D together.** Physically based surfaces, 3D cylindrical tubes, shadow maps, and moving cameras alongside 2D HUD text, equations, and synchronized live plots.
+- **Runs in the browser.** `npm install manimgx`. [Pyodide](https://pyodide.org) runs Python in a Web Worker; WebGPU renders the scene with dynamic CJK font loading.
+- **Agent feedback loop.** `manimang inspect` generates contact-sheet storyboards and runs 2D + 3D occlusion/layout checks at every play boundary; `manimang agent` repairs layout defects automatically.
+- **Text and math.** Write LaTeX or Typst with zero TeX Live installation needed.
+- **Speech in sync.** Match animations to spoken words with `self.say()` across `QwenTTS`, `Edge`, `SystemVoice`, and `Fal`.
 
 ## Documentation
 
-**[manimgx.academa.ai](https://manimgx.academa.ai)** has the guides, rendered examples
-with source code, and API reference:
+**[ainewground.com](https://ainewground.com)** and **[manimgx.academa.ai](https://manimgx.academa.ai)** provide guides, rendered examples with source code, and the API reference:
 
-- [Quickstart](https://manimgx.academa.ai/user-guide/quickstart/): install, set up your
-  editor, and render your first scene.
-- [User Guide](https://manimgx.academa.ai/user-guide/the-basics/): learn scenes,
-  animations, 3D, text and sound, one idea at a time.
-- [Examples](https://manimgx.academa.ai/gallery/): watch complete films and read the
-  Python that makes them.
-- [API Reference](https://manimgx.academa.ai/reference/): look up classes, methods
-  and their typed parameters.
-- [Coming from Manim CE](https://manimgx.academa.ai/user-guide/coming-from-manim-ce/):
-  adapt existing scenes and check where behavior differs.
+- [Quickstart](https://manimgx.academa.ai/user-guide/quickstart/): install, set up your editor, and render your first scene.
+- [User Guide](https://manimgx.academa.ai/user-guide/the-basics/): learn scenes, animations, 3D lights &amp; materials, text, and sound.
+- [Examples](https://manimgx.academa.ai/gallery/): watch complete films and read the Python that makes them.
+- [API Reference](https://manimgx.academa.ai/reference/): look up classes, methods, and their typed parameters.
 
-For agents, [llms.txt](https://manimgx.academa.ai/llms.txt) provides setup instructions
-and links to the documentation as Markdown.
+For coding agents, [llms.txt](https://manimgx.academa.ai/llms.txt) provides setup instructions and links to the documentation as Markdown.
 
 ## On the shoulders of giants
 
-[Grant Sanderson](https://www.3blue1brown.com) created
-[Manim](https://github.com/3b1b/manim). ManimGX targets the API of
-[Manim Community Edition](https://www.manim.community), the widely used
-community-maintained fork.
+**ManimANG** is developed by **[AI New Ground](https://ainewground.com)** (`@gptssam`) on top of **[ManimGX](https://github.com/academa-labs/manimgx)**, created by [Abdullah Geduk](https://geduk.io) and [Sina Atalay](https://sinaatalay.com) at [Academa](https://academa.ai). [Grant Sanderson](https://www.3blue1brown.com) created [Manim](https://github.com/3b1b/manim), and ManimANG / ManimGX target the API of [Manim Community Edition](https://www.manim.community).
 
-The Rust renderer uses [wgpu](https://wgpu.rs) for native GPU rendering and WebGPU in
-the browser. Its 3D lighting is adapted from Google's
-[Filament](https://github.com/google/filament): physically based materials,
-image-based lighting, ambient occlusion, bloom and AgX tone mapping.
-[Typst](https://typst.app) typesets text and math, with
-[mitex](https://github.com/mitex-rs/mitex) translating LaTeX input to Typst.
-[x264](https://www.videolan.org/developers/x264.html) encodes native video exports as
-H.264; [FFmpeg](https://ffmpeg.org) decodes imported audio, using
-[libopus](https://opus-codec.org) for Opus.
-
-[Pyodide](https://pyodide.org) runs Python scenes in a browser worker. Linux wheels
-bundle [Mesa](https://mesa3d.org)'s lavapipe for Vulkan rendering on the CPU when no
-suitable GPU is available.
-
-## Community
-
-ManimGX is an open-source project by [Academa](https://academa.ai), created by [Abdullah Geduk](https://geduk.io) and [Sina Atalay](https://sinaatalay.com). We welcome contributions from the community.
-
-Questions, bug reports and feature requests start with an
-[issue](https://github.com/academa-labs/manimgx/issues/new/choose).
-To contribute, read [Contributing](https://github.com/academa-labs/manimgx/blob/main/.github/CONTRIBUTING.md)
-and the [Developer Guide](https://manimgx.academa.ai/developer-guide/).
-
-[Changelog](https://manimgx.academa.ai/changelog/) ·
-[Citing ManimGX](https://github.com/academa-labs/manimgx/blob/main/CITATION.cff)
-
-Everyone participating follows the
-[Code of Conduct](https://github.com/academa-labs/manimgx/blob/main/.github/CODE_OF_CONDUCT.md).
-Report vulnerabilities privately through the
-[security policy](https://github.com/academa-labs/manimgx/blob/main/.github/SECURITY.md).
+The Rust renderer uses [wgpu](https://wgpu.rs) for native GPU rendering and WebGPU in the browser. Its 3D lighting is adapted from Google's [Filament](https://github.com/google/filament): physically based materials, image-based lighting, ambient occlusion, bloom and AgX tone mapping. [Typst](https://typst.app) typesets text and math, with [mitex](https://github.com/mitex-rs/mitex) translating LaTeX input to Typst. [x264](https://www.videolan.org/developers/x264.html) encodes native video exports as H.264; [FFmpeg](https://ffmpeg.org) decodes imported audio, using [libopus](https://opus-codec.org) for Opus.
 
 ## License
 
-ManimGX's own code is [MIT-licensed](https://github.com/academa-labs/manimgx/blob/main/LICENSE).
+ManimANG and ManimGX's own code are [MIT-licensed](https://github.com/ainewground/ManimANG/blob/main/LICENSE).
 Native wheels include x264 and are GPL-3.0-or-later as a whole.
 
 Bundled components retain their licenses: see the
-[third-party notices](https://github.com/academa-labs/manimgx/blob/main/LICENSE-THIRD-PARTY),
-[Linux renderer notices](https://github.com/academa-labs/manimgx/blob/main/LICENSE-LAVAPIPE),
-and the [Noto](https://github.com/academa-labs/manimgx/blob/main/fonts/manimgx-fonts/LICENSE)
-and [Noto CJK](https://github.com/academa-labs/manimgx/blob/main/fonts/manimgx-fonts-cjk/LICENSE) font licenses.
-
-This software uses code of [FFmpeg](https://ffmpeg.org) licensed under
-[LGPL-2.1-or-later](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html).
-Complete source, including FFmpeg, is in `manimgx-X.Y.Z-source.tar.xz` on each
-[GitHub release](https://github.com/academa-labs/manimgx/releases).
+[third-party notices](https://github.com/ainewground/ManimANG/blob/main/LICENSE-THIRD-PARTY),
+[Linux renderer notices](https://github.com/ainewground/ManimANG/blob/main/LICENSE-LAVAPIPE),
+and the [Noto](https://github.com/ainewground/ManimANG/blob/main/fonts/manimgx-fonts/LICENSE)
+and [Noto CJK](https://github.com/ainewground/ManimANG/blob/main/fonts/manimgx-fonts-cjk/LICENSE) font licenses.

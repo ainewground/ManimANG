@@ -266,7 +266,7 @@ class QwenTTSSettings(TypedDict, total=False, closed=True):
     """Settings for Alibaba's Apache-2.0 open-source `Qwen3-TTS` ([`QwenTTS`][manimgx.QwenTTS])."""
 
     model: str
-    """HuggingFace model ID or endpoint model name (default
+    """HuggingFace model ID, local MLX directory, or endpoint model name (default
     `"Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"`)."""
     language: Literal[
         "Auto",
@@ -286,18 +286,32 @@ class QwenTTSSettings(TypedDict, total=False, closed=True):
     """Optional style or emotion instruction, in words (default: none)."""
     base_url: str | None
     """URL of a local or remote OpenAI-compatible / Qwen3-TTS HTTP server (default:
-    `QWEN_TTS_URL` if set, otherwise local `qwen_tts` Python package or
+    `QWEN_TTS_URL` if set, otherwise local MLX / `qwen_tts` package or
     `http://localhost:8000/v1/audio/speech`)."""
     temperature: float
     """Sampling temperature above 0 and up to 1 (default 0.9)."""
+    seed: int
+    """Deterministic RNG seed for reproducible voice timbre and prosody (default
+    `20261017`, the signature `gptssam` / 지피티쌤 Aiden voice seed)."""
+    compact: bool
+    """Whether to trim leading/trailing dead air and compact internal breath pauses
+    while preserving a 25 ms consonant safety margin (default `True`)."""
+    speed: float
+    """Playback tempo multiplier via `ffmpeg atempo` without pitch shift (default `1.0`)."""
 
 
 _QWEN_DEFAULT_VOICES: dict[str, str] = {
-    "ko": "Sohee",
+    "ko": "Aiden",
     "ja": "Ono_Anna",
     "zh": "Vivian",
     "en": "Ryan",
 }
+
+
+_DEFAULT_MLX_MODEL_PATH = Path(
+    "/Users/codingo/Documents/ttsMaker/models/qwen3-customvoice-8bit"
+)
+_DEFAULT_MLX_PYTHON = Path("/Users/codingo/Documents/ttsMaker/.venv/bin/python")
 
 
 @dataclass(frozen=True, slots=True, init=False, repr=False)
@@ -305,24 +319,25 @@ class QwenTTS:
     """Alibaba's Apache-2.0 open-source `Qwen3-TTS` model, as a local or self-hosted voice:
     `QwenTTS(voice, **settings)`.
 
-    Supports Korean (`"Sohee"`), Japanese (`"Ono_Anna"`), Chinese (`"Vivian"`, `"Serena"`,
-    `"Uncle_Fu"`, `"Dylan"`, `"Eric"`), and English (`"Ryan"`, `"Aiden"`). When `voice` is
-    `"auto"` (the default), selects `"Sohee"` for Korean text. Speaks either through a
-    local or remote HTTP endpoint (`base_url` or `QWEN_TTS_URL`) or locally via the
-    `qwen_tts` Python library.
+    Supports Korean (`"Aiden"` — the signature 지피티쌤 clear mid-range male voice — and
+    `"Sohee"`), Japanese (`"Ono_Anna"`), Chinese (`"Vivian"`, `"Serena"`, `"Uncle_Fu"`,
+    `"Dylan"`, `"Eric"`), and English (`"Ryan"`, `"Aiden"`). When `voice` is `"auto"` (the
+    default), selects `"Aiden"` for Korean text. Speaks locally via Apple Silicon MLX
+    (`mlx_audio`), the `qwen_tts` Python library, or a local/remote HTTP endpoint
+    (`base_url` or `QWEN_TTS_URL`).
 
     Args:
-        voice: Speaker name (such as `"Sohee"` for Korean or `"Ryan"` for English), or
-            `"auto"`.
+        voice: Speaker name (such as `"Aiden"` or `"Sohee"` for Korean, or `"Ryan"` for
+            English), or `"auto"`.
         key: Optional Bearer API key (`QWEN_TTS_KEY` or `DASHSCOPE_API_KEY` if needed).
-        **settings: Model, language, prompt, and endpoint settings
-            ([`QwenTTSSettings`][manimgx.audio.tts.QwenTTSSettings]).
+        **settings: Model, language, prompt, seed, pause-compaction, speed, and endpoint
+            settings ([`QwenTTSSettings`][manimgx.audio.tts.QwenTTSSettings]).
 
     Examples:
-        Speak Korean with Qwen3-TTS's native Korean voice `"Sohee"`:
+        Speak Korean with the signature 지피티쌤 voice (`"Aiden"`, `seed=20261017`):
 
         ```py
-        voice = m.QwenTTS("Sohee", language="Korean")
+        voice = m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)
         ```
     """
 
@@ -360,7 +375,17 @@ class QwenTTS:
     def __call__(self, text: str) -> Speech:
         chosen = self.resolve_voice(text)
         model = str(self.settings.get("model", "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"))
-        language = str(self.settings.get("language", "Auto"))
+        raw_lang = str(self.settings.get("language", "Auto"))
+        if raw_lang == "Auto":
+            script = _detect_script(text)
+            language = {
+                "ko": "Korean",
+                "ja": "Japanese",
+                "zh": "Chinese",
+                "en": "English",
+            }[script]
+        else:
+            language = raw_lang
         prompt = self.settings.get("prompt")
         base_url = self.settings.get("base_url") or os.environ.get("QWEN_TTS_URL")
         key = (
@@ -368,6 +393,9 @@ class QwenTTS:
             or os.environ.get("QWEN_TTS_KEY")
             or os.environ.get("DASHSCOPE_API_KEY")
         )
+        seed = int(self.settings.get("seed", 20261017))  # ty: ignore[invalid-argument-type]
+        compact = bool(self.settings.get("compact", True))
+        speed = float(self.settings.get("speed", 1.0))  # ty: ignore[invalid-argument-type]
         audio, raw_pieces = _synthesize_qwen(
             text=text,
             voice=chosen,
@@ -377,9 +405,154 @@ class QwenTTS:
             base_url=str(base_url) if base_url is not None else None,
             key=key,
             temperature=float(self.settings.get("temperature", 0.9)),  # ty: ignore[invalid-argument-type]
+            seed=seed,
+            compact=compact,
+            speed=speed,
         )
         pieces = _expand_cjk_pieces(_pieces(raw_pieces))
         return Speech(audio, text=text, words=timed(text, pieces))
+
+
+def _synthesize_qwen_mlx(
+    *,
+    text: str,
+    voice: str,
+    model: str,
+    language: str,
+    prompt: str | None,
+    temperature: float,
+    seed: int,
+    compact: bool,
+    speed: float,
+) -> bytes | None:
+    """Synthesize `text` locally via Apple Silicon MLX `Qwen3-TTS` if installed."""
+    mlx_model_dir = Path(
+        os.environ.get("QWEN_TTS_MLX_MODEL", str(_DEFAULT_MLX_MODEL_PATH))
+    )
+    if Path(model).exists():
+        mlx_model_dir = Path(model)
+    if not mlx_model_dir.exists():
+        return None
+
+    mlx_python = Path(os.environ.get("QWEN_TTS_PYTHON", str(_DEFAULT_MLX_PYTHON)))
+    if not mlx_python.exists():
+        mlx_python = Path(sys.executable)
+
+    helper_code = """
+import json, sys, numpy as np, soundfile as sf
+import mlx.core as mx
+from mlx_audio.tts.utils import load_model
+
+cfg = json.loads(sys.argv[1])
+model = load_model(cfg["model_dir"])
+mx.random.seed(int(cfg["seed"]))
+chunks = []
+for res in model.generate_custom_voice(
+    text=cfg["text"],
+    speaker=cfg["voice"],
+    language=cfg["language"],
+    instruct=cfg["prompt"],
+    temperature=float(cfg["temperature"]),
+    top_k=50,
+    top_p=1.0,
+    repetition_penalty=1.05,
+    max_tokens=1600,
+):
+    chunks.append(np.array(res.audio, dtype=np.float32))
+audio = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
+sr = int(getattr(model, "sample_rate", 24000))
+
+if cfg["compact"]:
+    frame_len = max(1, int(sr * 10.0 / 1000.0))
+    n_frames = len(audio) // frame_len
+    if n_frames > 0:
+        frames = audio[: n_frames * frame_len].reshape(n_frames, frame_len)
+        rms = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
+        db = 20.0 * np.log10(rms)
+        is_speech = db > -35.0
+        idx = np.where(is_speech)[0]
+        if len(idx) > 0:
+            margin_f = max(1, int(25.0 / 10.0))
+            max_pause_f = max(1, int(55.0 / 10.0))
+            f_start = max(0, int(idx[0]) - margin_f)
+            f_end = min(n_frames, int(idx[-1]) + 1 + margin_f)
+            trimmed_f = is_speech[f_start:f_end]
+            out_pieces = []
+            i = 0
+            nf = len(trimmed_f)
+            while i < nf:
+                if trimmed_f[i]:
+                    j = i
+                    while j < nf and trimmed_f[j]:
+                        j += 1
+                    s0 = (f_start + i) * frame_len
+                    s1 = min(len(audio), (f_start + j) * frame_len)
+                    out_pieces.append(audio[s0:s1])
+                    i = j
+                else:
+                    j = i
+                    while j < nf and not trimmed_f[j]:
+                        j += 1
+                    run_f = j - i
+                    keep_f = min(run_f, max_pause_f + 2 * margin_f)
+                    if keep_f > 0:
+                        half = keep_f // 2
+                        rem = keep_f - half
+                        s_left0 = (f_start + i) * frame_len
+                        s_left1 = min(len(audio), (f_start + i + half) * frame_len)
+                        s_right0 = max(s_left1, (f_start + j - rem) * frame_len)
+                        s_right1 = min(len(audio), (f_start + j) * frame_len)
+                        out_pieces.append(audio[s_left0:s_left1])
+                        if s_right1 > s_right0:
+                            out_pieces.append(audio[s_right0:s_right1])
+                    i = j
+            if out_pieces:
+                audio = np.concatenate(out_pieces)
+    fade = min(int(sr * 0.012), len(audio) // 4)
+    if fade > 0:
+        audio[:fade] *= np.linspace(0.0, 1.0, fade, dtype=np.float32)
+        audio[-fade:] *= np.linspace(1.0, 0.0, fade, dtype=np.float32)
+    cur_rms = float(np.sqrt(np.mean(audio ** 2) + 1e-12))
+    if cur_rms > 1e-5:
+        audio = audio * (0.18 / cur_rms)
+    peak = float(np.max(np.abs(audio))) if len(audio) else 0.0
+    if peak > 0.95:
+        audio = audio * (0.95 / peak)
+
+sf.write(cfg["out_wav"], audio, sr)
+"""
+    with tempfile.TemporaryDirectory() as tmp:
+        out_wav = Path(tmp) / "qwen_out.wav"
+        out_mp3 = Path(tmp) / "qwen_out.mp3"
+        cfg = {
+            "model_dir": str(mlx_model_dir),
+            "text": text,
+            "voice": voice,
+            "language": language,
+            "prompt": prompt,
+            "temperature": temperature,
+            "seed": seed,
+            "compact": compact,
+            "out_wav": str(out_wav),
+        }
+        res = subprocess.run(
+            [str(mlx_python), "-c", helper_code, json.dumps(cfg)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if res.returncode != 0 or not out_wav.exists():
+            return None
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is not None:
+            cmd = [ffmpeg, "-y", "-i", str(out_wav)]
+            if abs(speed - 1.0) > 1e-3:
+                cmd += ["-af", f"atempo={speed:.4f}"]
+            cmd += ["-c:a", "libmp3lame", "-q:a", "2", str(out_mp3)]
+            mp3_res = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if mp3_res.returncode == 0 and out_mp3.exists():
+                return out_mp3.read_bytes()
+        return out_wav.read_bytes()
 
 
 def _synthesize_qwen(
@@ -392,9 +565,26 @@ def _synthesize_qwen(
     base_url: str | None,
     key: str | None,
     temperature: float,
+    seed: int = 20261017,
+    compact: bool = True,
+    speed: float = 1.0,
 ) -> tuple[bytes, list[dict[str, object]]]:
-    """Synthesize `text` using a local `qwen_tts` package or an HTTP endpoint."""
+    """Synthesize `text` using local MLX `Qwen3-TTS`, `qwen_tts`, or an HTTP endpoint."""
     if base_url is None:
+        mlx_bytes = _synthesize_qwen_mlx(
+            text=text,
+            voice=voice,
+            model=model,
+            language=language,
+            prompt=prompt,
+            temperature=temperature,
+            seed=seed,
+            compact=compact,
+            speed=speed,
+        )
+        if mlx_bytes is not None:
+            return mlx_bytes, []
+
         try:
             import soundfile as sf  # ty: ignore[unresolved-import]
             from qwen_tts import Qwen3TTSModel  # ty: ignore[unresolved-import]

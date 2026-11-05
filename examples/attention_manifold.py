@@ -1,378 +1,457 @@
-"""트랜스포머 어텐션의 기하학: 구면 다양체 위의 자기-어텐션 흐름과 의미 군집화.
+"""Attention as gravity on the unit sphere: token embeddings cluster under softmax attraction.
 
-트랜스포머의 자기-어텐션(Self-Attention)을 연속 시간 동역학계로 보면, 단위 구면 S² 위의
-토큰 임베딩 x_i들이 어텐션 가중치 A_ij(τ) = softmax(<q_i, k_j> / (√d_k · τ))를 따라 서로를
-끌어당기는 리만 기하학적 흐름 dx_i/dt = P_{x_i}(∑_j A_ij(x) v_j)를 이룹니다 (Geshkovski et al., 2023).
-온도 τ가 낮아질수록 균일하게 퍼져 있던 어텐션 엔트로피 H(A)가 감소하고, 구면 위에서 무질서하게
-섞여 있던 토큰들이 측지선 아크를 따라 세 개의 선명한 의미 군집으로 응집됩니다.
+Eight token embeddings live on the unit 2-sphere S² and evolve under the continuous-time
+transformer self-attention flow dx_i/dt = P_{x_i}(Σ_j A_{ij} x_j), where A_{ij} =
+softmax_j(⟨Q x_i, K x_j⟩ / τ). As the inverse-temperature schedule cools τ from 1.20 to 0.16,
+diffuse geodesic attention arcs sharpen into high-weight bridges, pulling semantically related
+tokens into tight semantic clusters while the live Shannon entropy curve H(A) drops in step.
 """
-
-from collections.abc import Callable
 
 import numpy as np
 
-import manimang as m
+import manimgx as m
 
-N_TOKENS = 36  # 12 tokens per semantic cluster
-STEPS = 160
-RADIUS = 1.72  # sphere radius in screen units (keeps HUD margins completely clear)
-CENTER = np.array([0.0, -0.08, 0.0])
-CLUSTER_COLORS = ["#38bdf8", "#fbbf24", "#f43f5e"]  # 기하·공간, 대수·수식, 동역학·시간
-TAU_START, TAU_END = 1.80, 0.18
+N_TOKENS = 8
+RADIUS = 2.05
+LABELS = ["[CLS]", "양자", "중력", "시공간", "어텐션", "행렬", "다양체", "수렴"]
+PALETTE = [
+    "#ff6b6b",
+    "#38bdf8",
+    "#fbbf24",
+    "#fb923c",
+    "#34d399",
+    "#a78bfa",
+    "#2dd4bf",
+    "#f472b6",
+]
 
 
-def normalize(v: np.ndarray) -> np.ndarray:
-    """Unit vectors along the last axis."""
-    return v / np.maximum(np.linalg.norm(v, axis=-1, keepdims=True), 1e-9)
+def sph_to_cart(theta: np.ndarray, phi: np.ndarray) -> np.ndarray:
+    """Unit vectors on S² from polar angle θ and azimuth φ."""
+    st = np.sin(theta)
+    return np.stack([st * np.cos(phi), st * np.sin(phi), np.cos(theta)], axis=-1)
 
 
-def attention_matrix(
-    x: np.ndarray, anchors: np.ndarray, labels: np.ndarray, tau: float
-) -> np.ndarray:
-    """Exact scaled dot-product attention matrix A_ij(τ) on the sphere."""
-    # Query and Key projections combine current position x_i with semantic anchor affinity
-    q = normalize(0.65 * x + 0.55 * anchors[labels])
-    k = q
-    logits = (q @ k.T) / max(tau, 0.05)
-    logits -= logits.max(axis=1, keepdims=True)
-    weights = np.exp(logits)
+THETA_INIT = np.array([0.62, 0.88, 1.12, 1.32, 1.85, 2.08, 2.25, 1.56])
+PHI_INIT = np.array([-0.15, 0.55, 1.25, 1.95, -2.25, -1.45, -0.72, 2.85])
+# Two semantic cluster centroids on S² (physics cluster vs geometry/attention cluster)
+CLUSTER_TARGET = sph_to_cart(
+    np.array([0.82, 0.90, 0.98, 1.06, 1.92, 2.00, 2.08, 1.84]),
+    np.array([0.45, 0.68, 0.92, 1.15, -1.55, -1.32, -1.08, -1.78]),
+)
+AFFINITY_MASK = np.array(
+    [
+        [1.0 if (i < 4) == (j < 4) else -0.45 for j in range(N_TOKENS)]
+        for i in range(N_TOKENS)
+    ]
+)
+
+GLASS_MAT = m.Material(metallic=0.0, roughness=0.14, reflectance=0.85)
+ORB_MAT = m.Material(metallic=0.25, roughness=0.18, reflectance=0.78)
+TUBE_MAT = m.Material(metallic=0.20, roughness=0.22, reflectance=0.75)
+PEDESTAL_MAT = m.Material(metallic=0.15, roughness=0.38, reflectance=0.55)
+
+
+def softmax_attention(pos: np.ndarray, tau: float) -> np.ndarray:
+    """Row-stochastic self-attention matrix A_ij = softmax_j((⟨Qx_i, Kx_j⟩) / τ)."""
+    sim = ((pos @ pos.T) * AFFINITY_MASK) / max(tau, 0.12)
+    np.fill_diagonal(sim, -0.35)
+    sim -= sim.max(axis=1, keepdims=True)
+    weights = np.exp(sim)
     return weights / weights.sum(axis=1, keepdims=True)
 
 
-def entropy(a: np.ndarray) -> float:
-    """Mean row-wise Shannon entropy H(A) in nats."""
-    clipped = np.clip(a, 1e-9, 1.0)
-    return float(-np.mean(np.sum(clipped * np.log(clipped), axis=1)))
+def attention_entropy(attn: np.ndarray) -> float:
+    """Mean row Shannon entropy H(A) in bits."""
+    safe = np.clip(attn, 1e-9, 1.0)
+    return float(-np.sum(safe * np.log2(safe), axis=1).mean())
 
 
-def alignment(x: np.ndarray, anchors: np.ndarray, labels: np.ndarray) -> float:
-    """Mean cosine similarity between each token and its semantic cluster centroid."""
-    return float(np.mean(np.sum(x * anchors[labels], axis=1)))
+def slerp_geodesic(u: np.ndarray, v: np.ndarray, n_pts: int = 24) -> np.ndarray:
+    """Great-circle arc on the sphere of radius RADIUS between unit vectors u and v."""
+    dot = float(np.clip(np.dot(u, v), -0.9995, 0.9995))
+    omega = np.arccos(dot)
+    t = np.linspace(0.0, 1.0, n_pts)[:, None]
+    if omega < 1e-4:
+        pts = (1.0 - t) * u + t * v
+    else:
+        so = np.sin(omega)
+        pts = (np.sin((1.0 - t) * omega) * u + np.sin(t * omega) * v) / so
+    pts /= np.linalg.norm(pts, axis=1, keepdims=True)
+    return RADIUS * 1.015 * pts
 
 
-def simulate_attention_flow() -> tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
-]:
-    """RK4 integration of the Riemannian Transformer Attention ODE on S²."""
-    rng = np.random.default_rng(42)
-    # Three semantic anchors well-separated on the sphere
-    anchors = normalize(
-        np.array(
-            [
-                [0.82, 0.42, 0.38],
-                [-0.78, 0.48, 0.40],
-                [0.0, -0.86, -0.51],
-            ]
-        )
-    )
-    labels = np.repeat(np.arange(3), N_TOKENS // 3)
-    # Initial token embeddings: widely dispersed across S² with mild bias toward anchors
-    raw = 0.28 * anchors[labels] + 0.92 * rng.standard_normal((N_TOKENS, 3))
-    x = normalize(raw)
-
-    taus = np.geomspace(TAU_START, TAU_END, STEPS + 1)
-    traj = np.empty((STEPS + 1, N_TOKENS, 3))
-    attns = np.empty((STEPS + 1, N_TOKENS, N_TOKENS))
-    entropies = np.empty(STEPS + 1)
-    alignments = np.empty(STEPS + 1)
-
-    dt = 0.042
-    for step, tau in enumerate(taus):
-        a = attention_matrix(x, anchors, labels, float(tau))
-        traj[step] = x
-        attns[step] = a
-        entropies[step] = entropy(a)
-        alignments[step] = alignment(x, anchors, labels)
-        if step == STEPS:
-            break
-
-        def field(pos: np.ndarray, t_val: float) -> np.ndarray:
-            att = attention_matrix(pos, anchors, labels, t_val)
-            v = normalize(0.55 * pos + 0.65 * anchors[labels])
-            pull = att @ v
-            # Tangent projection P_x(u) = u - <u, x> x on S²
-            tangent = pull - np.sum(pull * pos, axis=1, keepdims=True) * pos
-            return 1.35 * tangent
-
-        t0 = float(tau)
-        t1 = float(taus[step + 1])
-        tm = 0.5 * (t0 + t1)
-        k1 = field(x, t0)
-        k2 = field(normalize(x + 0.5 * dt * k1), tm)
-        k3 = field(normalize(x + 0.5 * dt * k2), tm)
-        k4 = field(normalize(x + dt * k3), t1)
-        x = normalize(x + (dt / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4))
-
-    return traj, attns, taus, entropies, alignments, labels
-
-
-def sphere_beads(
-    centers: np.ndarray, radius: float = 0.075
+def tube(
+    points: np.ndarray, radius: float, sides: int = 10
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Vertices and triangles of lit 3D spheres at `centers` merged into one MeshMobject."""
-    lon, lat = np.meshgrid(
-        np.linspace(0, m.TAU, 11)[:-1], np.linspace(0, np.pi, 7), indexing="ij"
+    """Vertices and triangles of a 3D cylindrical tube along a polyline."""
+    tangent = np.gradient(points, axis=0)
+    norms = np.linalg.norm(tangent, axis=1, keepdims=True)
+    tangent /= np.maximum(norms, 1e-8)
+    ref = (
+        np.array([0.3, 0.5, 0.8])
+        if abs(tangent[0, 2]) < 0.85
+        else np.array([0.8, 0.2, 0.1])
     )
-    unit = np.stack(
-        [np.sin(lat) * np.cos(lon), np.sin(lat) * np.sin(lon), np.cos(lat)], axis=-1
+    seed = np.cross(tangent[0], ref)
+    normals = [seed / max(float(np.linalg.norm(seed)), 1e-8)]
+    for t in tangent[1:]:
+        n = normals[-1] - np.dot(normals[-1], t) * t
+        nl = float(np.linalg.norm(n))
+        normals.append(n / nl if nl > 1e-8 else normals[-1])
+    n_ = np.array(normals)
+    b_ = np.cross(tangent, n_)
+    a = np.linspace(0, m.TAU, sides, endpoint=False)
+    ring = (
+        np.cos(a)[None, :, None] * n_[:, None] + np.sin(a)[None, :, None] * b_[:, None]
+    )
+    verts = (points[:, None] + radius * ring).reshape(-1, 3)
+    i = np.arange(len(points) - 1)[:, None]
+    j = np.arange(sides)[None, :]
+    k = (j + 1) % sides
+    tris = np.stack(
+        [
+            np.stack([i * sides + j, (i + 1) * sides + j, (i + 1) * sides + k], -1),
+            np.stack([i * sides + j, (i + 1) * sides + k, i * sides + k], -1),
+        ],
+        2,
     ).reshape(-1, 3)
-    i, j = np.meshgrid(np.arange(10), np.arange(6), indexing="ij")
-    a, b = i * 7 + j, (i + 1) % 10 * 7 + j
-    tris = np.concatenate(
-        [np.stack([a, b, b + 1], axis=-1), np.stack([a, b + 1, a + 1], axis=-1)]
-    ).reshape(-1, 3)
-    verts = (centers[:, None, :] + radius * unit[None, :, :]).reshape(-1, 3)
-    offsets = len(unit) * np.arange(len(centers))[:, None, None]
-    return verts, (tris[None, :, :] + offsets).reshape(-1, 3)
-
-
-def geodesic_arc(p: np.ndarray, q: np.ndarray, n: int = 12) -> np.ndarray:
-    """Points along the spherical geodesic arc from unit vector p to unit vector q."""
-    s = np.linspace(0.0, 1.0, n)[:, None]
-    chord = (1.0 - s) * p[None, :] + s * q[None, :]
-    return CENTER + RADIUS * normalize(chord)
-
-
-def live_decimal(number: m.DecimalNumber, fn: Callable[[], float]) -> m.DecimalNumber:
-    """Update a DecimalNumber only when its displayed digits change."""
-
-    def _update(d: m.DecimalNumber) -> None:
-        val = fn()
-        if round(val, d.num_decimal_places) != round(
-            d.get_value(), d.num_decimal_places
-        ):
-            d.set_value(val)
-
-    number.add_updater(_update)
-    return number
+    return verts, tris
 
 
 class AttentionManifold(m.ThreeDScene):
-    voice = m.Edge(voice="ko-KR-SunHiNeural")
+    voice = m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)
 
     def construct(self) -> None:
-        traj, attns, taus, entropies, alignments, labels = simulate_attention_flow()
-        progress = m.ValueTracker(0.0)
+        # ── Studio PBR Camera & Lighting Setup ──
+        self.camera.tone_mapping = "agx"
+        self.camera.ambient_occlusion = 1.0
+        self.camera.ambient_occlusion_radius = 0.38
+        self.camera.bloom = 0.08
+        self.camera.exposure = 1.12
 
-        def state_at(p: float) -> tuple[np.ndarray, float, float, float, int]:
-            f = np.clip(p, 0.0, 1.0) * STEPS
-            k = min(int(f), STEPS - 1)
-            w = f - k
-            pos = normalize((1.0 - w) * traj[k] + w * traj[k + 1])
-            tau_val = float((1.0 - w) * taus[k] + w * taus[k + 1])
-            ent_val = float((1.0 - w) * entropies[k] + w * entropies[k + 1])
-            aln_val = float((1.0 - w) * alignments[k] + w * alignments[k + 1])
-            return CENTER + RADIUS * pos, tau_val, ent_val, aln_val, k
-
-        # 1. Wireframe S² manifold grid
-        wireframe = m.VGroup()
-        angles = np.linspace(0, m.TAU, 96)
-        for lat_deg in (-60, -30, 0, 30, 60):
-            lat = np.radians(lat_deg)
-            r_lat, z_lat = RADIUS * np.cos(lat), RADIUS * np.sin(lat)
-            pts = CENTER + np.column_stack(
-                [
-                    r_lat * np.cos(angles),
-                    r_lat * np.sin(angles),
-                    np.full_like(angles, z_lat),
-                ]
-            )
-            ring = m.VMobject(
-                stroke_color="#334155",
-                stroke_width=1.4 if lat_deg != 0 else 2.1,
-                stroke_opacity=0.55,
-                shade_in_3d=True,
-            )
-            ring.set_points_as_corners(pts)
-            wireframe.add(ring)
-        for lon_deg in range(0, 180, 30):
-            lon = np.radians(lon_deg)
-            pts = CENTER + RADIUS * np.column_stack(
-                [
-                    np.cos(angles) * np.cos(lon),
-                    np.cos(angles) * np.sin(lon),
-                    np.sin(angles),
-                ]
-            )
-            meridian = m.VMobject(
-                stroke_color="#334155",
-                stroke_width=1.3,
-                stroke_opacity=0.45,
-                shade_in_3d=True,
-            )
-            meridian.set_points_as_corners(pts)
-            wireframe.add(meridian)
-
-        # 2. Geodesic attention arcs between top-attending token pairs
-        pair_indices = [
-            (i, (i + 1) % (N_TOKENS // 3) + c * (N_TOKENS // 3))
-            for c in range(3)
-            for i in range(c * (N_TOKENS // 3), (c + 1) * (N_TOKENS // 3))
-        ]
-        arcs = m.VGroup(
-            *[
-                m.VMobject(
-                    stroke_color=CLUSTER_COLORS[labels[i]],
-                    stroke_width=2.2,
-                    stroke_opacity=0.55,
-                    shade_in_3d=True,
-                )
-                for i, _ in pair_indices
-            ]
+        self.set_camera_orientation(
+            phi=64 * m.DEGREES,
+            theta=-44 * m.DEGREES,
+            zoom=1.08,
+            frame_center=np.array([-0.38, 0.08, -0.05]),
         )
 
-        def update_arcs(group: m.Mobject) -> None:
-            pts, _, _, _, step_idx = state_at(progress.get_value())
-            unit_pts = (pts - CENTER) / RADIUS
-            a_mat = attns[step_idx]
-            for arc_mob, (i, j) in zip(group.submobjects, pair_indices, strict=True):
-                assert isinstance(arc_mob, m.VMobject)
-                arc_mob.set_points_as_corners(geodesic_arc(unit_pts[i], unit_pts[j]))
-                weight = float(a_mat[i, j])
-                arc_mob.set_stroke(
-                    width=1.2 + 5.5 * min(weight * 4.0, 1.0),
-                    opacity=0.22 + 0.65 * min(weight * 4.0, 1.0),
-                )
-
-        update_arcs(arcs)
-        arcs.add_updater(update_arcs)
-
-        # 3. Geodesic trails on S²
-        trails = m.VGroup(
-            *[
-                m.VMobject(
-                    stroke_color=CLUSTER_COLORS[labels[i]],
-                    stroke_width=1.8,
-                    stroke_opacity=0.65,
-                    shade_in_3d=True,
-                )
-                for i in range(N_TOKENS)
-            ]
+        self.add(
+            m.EnvironmentLight(intensity=0.82),
+            m.SunLight(
+                4.0 * m.UP + 3.0 * m.LEFT + 5.5 * m.OUT,
+                intensity=1.35,
+                shadows=True,
+            ),
+            m.PointLight(
+                2.8 * m.RIGHT + 2.2 * m.DOWN + 2.5 * m.OUT,
+                color="#38bdf8",
+                intensity=3.5,
+            ),
         )
 
-        def update_trails(group: m.Mobject) -> None:
-            upto = max(2, int(progress.get_value() * STEPS) + 1)
-            for i, trail_mob in enumerate(group.submobjects):
-                assert isinstance(trail_mob, m.VMobject)
-                trail_mob.set_points_as_corners(CENTER + RADIUS * traj[:upto, i])
+        # ── Studio Pedestal Ring (3D Torus Base under the Sphere) ──
+        pedestal_ring = m.Torus(
+            major_radius=1.42,
+            minor_radius=0.055,
+            resolution=(48, 16),
+        ).shift(np.array([0.0, 0.0, -RADIUS - 0.18]))
+        pedestal_ring.set_color("#1e293b").set_material(PEDESTAL_MAT)
+        pedestal_inner = m.Torus(
+            major_radius=0.92,
+            minor_radius=0.035,
+            resolution=(40, 14),
+        ).shift(np.array([0.0, 0.0, -RADIUS - 0.18]))
+        pedestal_inner.set_color("#334155").set_material(ORB_MAT)
 
-        update_trails(trails)
-        trails.add_updater(update_trails)
+        # ── Dielectric Glass Riemann Sphere & Metallic Geodesic Rings ──
+        globe = (
+            m.Sphere(radius=RADIUS, resolution=(48, 32))
+            .set_color("#1e3a8a")
+            .set_opacity(0.28)
+            .set_material(GLASS_MAT)
+        )
+        equator_pts = np.array(
+            [
+                [RADIUS * np.cos(t), RADIUS * np.sin(t), 0.0]
+                for t in np.linspace(0, m.TAU, 96)
+            ]
+        )
+        eq_verts, eq_tris = tube(equator_pts, 0.014, sides=8)
+        equator_ring = m.MeshMobject(
+            eq_verts, eq_tris, shade_in_3d=True, fill_color="#38bdf8"
+        )
+        equator_ring.set_opacity(0.45).set_material(TUBE_MAT)
 
-        # 4. Lit 3D token spheres (MeshMobject)
-        init_pts, _, _, _, _ = state_at(0.0)
-        verts0, tris0 = sphere_beads(init_pts)
-        verts_per_bead = len(verts0) // N_TOKENS
-        bead_rgba = np.ones((len(verts0), 4))
+        meridian_pts = np.array(
+            [
+                [RADIUS * np.cos(t), 0.0, RADIUS * np.sin(t)]
+                for t in np.linspace(0, m.TAU, 96)
+            ]
+        )
+        mer_verts, mer_tris = tube(meridian_pts, 0.012, sides=8)
+        meridian_ring = m.MeshMobject(
+            mer_verts, mer_tris, shade_in_3d=True, fill_color="#64748b"
+        )
+        meridian_ring.set_opacity(0.32).set_material(TUBE_MAT)
+
+        # ── Continuous-Time Riemannian Attention Flow State ──
+        tau_tracker = m.ValueTracker(1.20)
+        coupling_tracker = m.ValueTracker(0.28)
+        state_pos = sph_to_cart(THETA_INIT, PHI_INIT)
+        anchor_pos = state_pos.copy()
+
+        def step_manifold(dt: float) -> None:
+            nonlocal state_pos
+            if dt <= 0:
+                return
+            tau = float(tau_tracker.get_value())
+            strength = float(coupling_tracker.get_value())
+            cool_alpha = float(np.clip((1.20 - tau) / (1.20 - 0.16), 0.0, 1.0))
+            attn = softmax_attention(state_pos, tau)
+            goal = (1.0 - 0.72 * cool_alpha) * anchor_pos + (
+                0.72 * cool_alpha
+            ) * CLUSTER_TARGET
+            target = 0.45 * (attn @ state_pos) + 0.55 * goal
+            dots = np.sum(target * state_pos, axis=1, keepdims=True)
+            tangent = target - dots * state_pos
+            step = state_pos + strength * min(dt, 0.05) * 1.6 * tangent
+            state_pos = step / np.linalg.norm(step, axis=1, keepdims=True)
+
+        physics_driver = m.Mobject()
+        physics_driver.add_updater(lambda mob, dt: step_manifold(dt))
+
+        # ── 8 PBR Metallic/Ceramic Token Orbs ──
+        token_orbs = m.Group()
         for i in range(N_TOKENS):
-            rgb = m.ManimColor(CLUSTER_COLORS[labels[i]]).to_rgb()
-            bead_rgba[i * verts_per_bead : (i + 1) * verts_per_bead, :3] = rgb
-        tokens_mesh = m.MeshMobject(verts0, tris0, shade_in_3d=True)
-        tokens_mesh.paint = tokens_mesh.paint.but(fill=bead_rgba)
+            orb = (
+                m.Sphere(radius=0.145, resolution=(24, 16))
+                .set_color(PALETTE[i])
+                .set_material(ORB_MAT)
+                .move_to(RADIUS * state_pos[i])
+            )
 
-        def update_tokens(mob: m.Mobject) -> None:
-            pts, _, _, _, _ = state_at(progress.get_value())
-            mob.set_points(sphere_beads(pts)[0])
+            def update_orb(mob: m.Mobject, idx: int = i) -> None:
+                mob.move_to(RADIUS * state_pos[idx])
 
-        tokens_mesh.add_updater(update_tokens)
+            orb.add_updater(update_orb)
+            token_orbs.add(orb)
 
-        # 5. Fixed-in-frame HUD (carefully spaced in the four corners)
-        title = m.Text("트랜스포머 어텐션의 기하학", font_size=30).to_corner(
-            m.UL, buff=0.38
-        )
+        # ── Top-10 Geodesic Attention Bridges as 3D Cylindrical PBR Tubes ──
+        pair_indices = [
+            (0, 1, "#38bdf8"),
+            (1, 2, "#38bdf8"),
+            (2, 3, "#fbbf24"),
+            (1, 3, "#60a5fa"),
+            (4, 5, "#a78bfa"),
+            (5, 6, "#2dd4bf"),
+            (4, 6, "#34d399"),
+            (6, 7, "#f472b6"),
+            (0, 4, "#fb923c"),
+            (3, 7, "#fbbf24"),
+        ]
+        arc_tubes = m.Group()
+        for i_idx, j_idx, col in pair_indices:
+            init_pts = slerp_geodesic(state_pos[i_idx], state_pos[j_idx])
+            v0, t0 = tube(init_pts, 0.022, sides=10)
+            mesh = m.MeshMobject(v0, t0, shade_in_3d=True, fill_color=col)
+            mesh.set_material(TUBE_MAT)
+
+            def update_tube(
+                mob: m.Mobject,
+                a: int = i_idx,
+                b: int = j_idx,
+            ) -> None:
+                attn = softmax_attention(state_pos, float(tau_tracker.get_value()))
+                w = float(0.5 * (attn[a, b] + attn[b, a]))
+                rad = 0.010 + 0.042 * min(1.0, w * 3.2)
+                pts = slerp_geodesic(state_pos[a], state_pos[b])
+                verts, _ = tube(pts, rad, sides=10)
+                mob.set_points(verts)
+                mob.set_opacity(float(np.clip(0.28 + 2.1 * w, 0.22, 0.96)))
+
+            mesh.add_updater(update_tube)
+            arc_tubes.add(mesh)
+
+        # ── Clean HUD & Live Synchronized 2D Entropy Plot (Top-Left / Bottom-Left) ──
+        title = m.Text(
+            "구면 다양체 위의 어텐션 동역학", font_size=30, weight="BOLD"
+        ).to_corner(m.UL, buff=0.38)
         subtitle = (
-            m.Text("구면 다양체 위의 자기-어텐션 흐름과 의미 군집화", font_size=19)
+            m.Text(
+                "리만 구면 S² 위에서 소프트맥스 인력으로 군집화되는 토큰 궤적",
+                font_size=18,
+            )
             .set_color(m.GREY_B)
             .next_to(title, m.DOWN, aligned_edge=m.LEFT, buff=0.12)
         )
 
-        attn_eq = m.MathTex(
-            r"\operatorname{Attn}(Q,K,V)=\operatorname{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}\,\tau}\right)V",
-            font_size=24,
-        ).to_corner(m.UR, buff=0.38)
-
-        tau_label = m.Text("온도 τ =", font_size=21).set_color("#38bdf8")
-        tau_num = live_decimal(
-            m.DecimalNumber(TAU_START, num_decimal_places=2, font_size=24),
-            lambda: state_at(progress.get_value())[1],
-        )
-        tau_row = m.VGroup(tau_label, tau_num).arrange(m.RIGHT, buff=0.14)
-
-        ent_label = m.Text("엔트로피 H =", font_size=21).set_color("#fbbf24")
-        ent_num = live_decimal(
-            m.DecimalNumber(float(entropies[0]), num_decimal_places=2, font_size=24),
-            lambda: state_at(progress.get_value())[2],
-        )
-        ent_row = m.VGroup(ent_label, ent_num).arrange(m.RIGHT, buff=0.14)
-
-        metrics_box = (
-            m.VGroup(tau_row, ent_row)
-            .arrange(m.DOWN, aligned_edge=m.RIGHT, buff=0.14)
-            .next_to(attn_eq, m.DOWN, aligned_edge=m.RIGHT, buff=0.22)
+        formula = (
+            m.MathTex(
+                r"A_{ij} = \operatorname{softmax}_j\!\left(\frac{\langle Qx_i, Kx_j\rangle}{\tau}\right)",
+                font_size=26,
+            )
+            .set_color("#7dd3fc")
+            .to_corner(m.UR, buff=0.40)
         )
 
-        flow_eq = m.MathTex(
-            r"\frac{dx_i}{dt} = P_{x_i}\!\left(\sum_{j=1}^{N} A_{ij}(x)\,v_j\right)",
-            font_size=25,
-        ).to_corner(m.DL, buff=0.38)
+        # Live 2D Entropy Curve H(τ) on the left panel
+        axes = (
+            m.Axes(
+                x_range=[0.15, 1.25, 0.25],
+                y_range=[0.8, 3.1, 0.5],
+                x_length=3.1,
+                y_length=1.55,
+                tips=False,
+                axis_config={"stroke_width": 1.6, "color": m.GREY_B},
+            )
+            .to_corner(m.DL, buff=0.42)
+            .shift(0.42 * m.UP)
+        )
 
-        align_label = m.Text("군집 응집도 =", font_size=21).set_color("#f43f5e")
-        align_num = live_decimal(
-            m.DecimalNumber(float(alignments[0]), num_decimal_places=2, font_size=24),
-            lambda: state_at(progress.get_value())[3],
+        axes_label = (
+            m.Text("어텐션 엔트로피 H(A)", font_size=16)
+            .set_color("#7dd3fc")
+            .next_to(axes, m.UP, aligned_edge=m.LEFT, buff=0.12)
         )
-        align_row = (
-            m.VGroup(align_label, align_num)
-            .arrange(m.RIGHT, buff=0.14)
-            .to_corner(m.DR, buff=0.38)
+        entropy_curve = axes.plot(
+            lambda t: 1.05 + 1.85 / (1.0 + np.exp(-4.2 * (t - 0.52))),
+            x_range=[0.16, 1.20],
+            color="#38bdf8",
+            stroke_width=3.2,
         )
+
+        rider = m.Dot(radius=0.075, color="#fbbf24")
+        rider.add_updater(
+            lambda d: d.move_to(
+                axes.c2p(
+                    float(tau_tracker.get_value()),
+                    1.05
+                    + 1.85
+                    / (1.0 + np.exp(-4.2 * (float(tau_tracker.get_value()) - 0.52))),
+                )
+            )
+        )
+
+        tau_lbl = m.MathTex(r"T =", font_size=28).set_color("#fbbf24")
+        tau_val = m.DecimalNumber(
+            1.20, num_decimal_places=2, font_size=28, color="#fbbf24"
+        )
+        tau_val.add_updater(lambda d: d.set_value(tau_tracker.get_value()))
+        ent_lbl = m.MathTex(r"H(A) =", font_size=28).set_color("#34d399")
+        ent_val = m.DecimalNumber(
+            attention_entropy(softmax_attention(state_pos, 1.20)),
+            num_decimal_places=2,
+            font_size=28,
+            color="#34d399",
+        )
+        ent_val.add_updater(
+            lambda d: d.set_value(
+                attention_entropy(
+                    softmax_attention(state_pos, float(tau_tracker.get_value()))
+                )
+            )
+        )
+        tau_pair = m.VGroup(tau_lbl, tau_val).arrange(m.RIGHT, buff=0.12)
+        ent_pair = m.VGroup(ent_lbl, ent_val).arrange(m.RIGHT, buff=0.12)
+        readout = (
+            m.VGroup(tau_pair, ent_pair)
+            .arrange(m.RIGHT, buff=0.36)
+            .next_to(formula, m.DOWN, aligned_edge=m.RIGHT, buff=0.22)
+        )
+
+        # Compact token legend below readout
+        legend_rows = m.VGroup()
+        for idx in (0, 1, 2, 4, 6, 7):
+            dot = m.Dot(radius=0.055, color=PALETTE[idx])
+            txt = m.Text(LABELS[idx], font_size=15).set_color(m.GREY_A)
+            legend_rows.add(m.VGroup(dot, txt).arrange(m.RIGHT, buff=0.10))
+        legend_grid = legend_rows.arrange_in_grid(
+            rows=3, cols=2, buff=(0.28, 0.10), cell_alignment=m.LEFT
+        ).next_to(readout, m.DOWN, aligned_edge=m.RIGHT, buff=0.24)
 
         self.add_fixed_in_frame_mobjects(
-            title, subtitle, attn_eq, metrics_box, flow_eq, align_row
+            title,
+            subtitle,
+            formula,
+            readout,
+            legend_grid,
+            axes,
+            axes_label,
+            entropy_curve,
+            rider,
         )
-        self.remove(attn_eq, metrics_box, flow_eq, align_row)
-
-        # Camera setup & choreography
-        self.set_camera_orientation(
-            phi=64 * m.DEGREES,
-            theta=-55 * m.DEGREES,
-            zoom=0.84,
+        self.remove(
+            formula,
+            readout,
+            legend_grid,
+            axes,
+            axes_label,
+            entropy_curve,
+            rider,
         )
-        self.add(wireframe, tokens_mesh)
-        self.begin_ambient_camera_rotation(rate=0.09)
 
-        # Act 1: Introduce the token manifold on S² and the attention equation
+        # ── Act 1 (Close-Up Hook): Glass Sphere & 3D Geodesic Tubes Come Alive ──
+        self.add(
+            pedestal_ring,
+            pedestal_inner,
+            globe,
+            equator_ring,
+            meridian_ring,
+            token_orbs,
+            physics_driver,
+        )
         self.say(
-            "트랜스포머의 토큰 임베딩들이 3차원 구면 다양체 위에 놓여 있고, [자기 어텐션 수식]이 토큰 사이의 연결 강도를 결정합니다.",
-            m.FadeIn(attn_eq, shift=0.15 * m.DOWN),
+            "트랜스포머의 토큰 임베딩들이 3차원 [구면 다양체] 위에 놓여 있고, "
+            "[자기 어텐션 수식]이 토큰 사이의 기하학적 인력을 결정합니다.",
+            m.FadeIn(arc_tubes),
+            m.FadeIn(m.VGroup(formula, readout, legend_grid)),
         )
 
-        # Act 2: Show the geodesic attention arcs and Riemannian flow equation
-        self.add(arcs, trails)
+        # ── Act 2: Synchronized 2D Entropy Graph + Camera Pullback ──
         self.say(
-            "온도 파라미터와 엔트로피가 표시되면, [리만 어텐션 미분방정식]을 따라 각 토큰이 측지선 궤적을 그리며 이동하기 시작합니다.",
-            m.AnimationGroup(
-                m.FadeIn(metrics_box),
-                m.FadeIn(flow_eq, shift=0.15 * m.UP),
-                m.FadeIn(align_row, shift=0.15 * m.UP),
-            ),
+            "온도 파라미터가 높을 때는 [엔트로피 곡선]이 높은 곳에 머물며 "
+            "[모든 토큰]이 구면 전체에서 고르게 소통합니다.",
+            m.FadeIn(m.VGroup(axes, axes_label, entropy_curve, rider)),
+            coupling_tracker.animate.set_value(0.55),
         )
 
-        # Act 3: Cool down temperature τ from 1.80 to 0.18 — tokens cluster on S²
+        # ── Act 3: Temperature Annealing & Clustering Phase Transition ──
+        self.begin_ambient_camera_rotation(rate=0.14)
         self.say(
-            "온도가 낮아질수록 어텐션 엔트로피가 급격히 줄어들고, [무질서하던 토큰들이 세 개의 선명한 의미 군집]으로 응집됩니다.",
-            progress.animate.set_value(1.0),
+            "이제 [온도를 0.18까지 낮추면] 어텐션 교량이 굵은 원통 튜브로 집중되면서, "
+            "[의미가 가까운 토큰]들이 강한 중력처럼 하나의 군집으로 수렴합니다.",
+            tau_tracker.animate.set_value(0.18),
+            coupling_tracker.animate.set_value(1.25),
         )
 
-        # Act 4: Orbit camera to inspect the separated semantic polytopes
-        self.stop_ambient_camera_rotation()
+        # ── Act 4: Climax Angle & Closing Synthesis ──
+        closing = (
+            m.Text(
+                "트랜스포머의 깊은 층은 구면 위에서 정보를 응축하는 기하학적 흐름입니다.",
+                font_size=21,
+            )
+            .set_color("#fef08a")
+            .to_edge(m.DOWN, buff=0.28)
+            .shift(1.1 * m.RIGHT)
+        )
+        self.add_fixed_in_frame_mobjects(closing)
+        self.remove(closing)
+
+        self.say(
+            "결국 트랜스포머의 깊은 층을 통과한다는 것은, [구면 다양체 위에서] "
+            "흩어진 문맥이 [하나의 기하학적 의미]로 응축되는 과정입니다.",
+            m.FadeIn(closing, shift=0.15 * m.UP),
+            tau_tracker.animate.set_value(0.16),
+        )
         self.move_camera(
-            phi=48 * m.DEGREES,
-            theta=-20 * m.DEGREES,
-            zoom=0.88,
-            run_time=2.8,
+            phi=56 * m.DEGREES,
+            zoom=1.02,
+            frame_center=np.array([-0.32, 0.05, -0.05]),
+            run_time=1.8,
         )
-        self.wait(1.0)
+        self.wait(0.8)
 
 
 if __name__ == "__main__":

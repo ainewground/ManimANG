@@ -1,0 +1,18 @@
+{
+ "text": "\uacb0\uad6d \ud2b8\ub79c\uc2a4\ud3ec\uba38\uc758 \uae4a\uc740 \uce35\uc744 \ud1b5\uacfc\ud55c\ub2e4\ub294 \uac83\uc740, \uad6c\uba74 \ub2e4\uc591\uccb4 \uc704\uc5d0\uc11c \ud769\uc5b4\uc9c4 \ubb38\ub9e5\uc774 \ud558\ub098\uc758 \uae30\ud558\ud559\uc801 \uc758\ubbf8\ub85c \uc751\ucd95\ub418\ub294 \uacfc\uc815\uc785\ub2c8\ub2e4.",
+ "voice": "QwenTTS('Aiden', language='Korean', seed=20261017, speed=1.18)",
+ "suffix": ".mp3",
+ "audio": "8e24ce39633a4aa4",
+ "edit": {
+  "start": 0.0,
+  "end": null,
+  "speed": 1.0,
+  "loop": null,
+  "gain": 0.0,
+  "fade_in": 0.0,
+  "fade_out": 0.0,
+  "pan": 0.0,
+  "duck": 0.0
+ },
+ "words": []
+}

@@ -32,16 +32,18 @@ class TestAutoVoiceSelection:
         assert explicit.resolve_voice("Hello world") == "ko-KR-InJoonNeural"
         assert repr(explicit) == "Edge('ko-KR-InJoonNeural', rate='+10%')"
 
-    def test_qwen_tts_auto_selects_sohee_for_korean(self) -> None:
+    def test_qwen_tts_auto_selects_aiden_for_korean(self) -> None:
         voice = m.QwenTTS()
-        assert voice.resolve_voice("이차함수의 그래프입니다.") == "Sohee"
+        assert voice.resolve_voice("이차함수의 그래프입니다.") == "Aiden"
         assert voice.resolve_voice("こんにちは") == "Ono_Anna"
         assert voice.resolve_voice("你好") == "Vivian"
         assert voice.resolve_voice("Hello") == "Ryan"
-        with_key = m.QwenTTS("Sohee", key="secret", language="Korean")
-        without_key = m.QwenTTS("Sohee", language="Korean")
+        with_key = m.QwenTTS("Aiden", key="secret", language="Korean", seed=20261017)
+        without_key = m.QwenTTS("Aiden", language="Korean", seed=20261017)
         assert _identity(with_key) == _identity(without_key)
-        assert repr(with_key) == "QwenTTS('Sohee', language='Korean')"
+        assert repr(with_key) == "QwenTTS('Aiden', language='Korean', seed=20261017)"
+        sohee = m.QwenTTS("Sohee", language="Korean")
+        assert sohee.resolve_voice("Hello") == "Sohee"
 
     def test_system_voice_auto_selects_yuna_on_macos(
         self, monkeypatch: pytest.MonkeyPatch
