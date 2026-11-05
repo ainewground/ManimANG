@@ -1,8 +1,8 @@
 {
  "text": "\ud2b8\ub79c\uc2a4\ud3ec\uba38\uc758 \ud1a0\ud070 \uc784\ubca0\ub529\ub4e4\uc774 3\ucc28\uc6d0 \uad6c\uba74 \ub2e4\uc591\uccb4 \uc704\uc5d0 \ub193\uc5ec \uc788\uace0, \uc790\uae30 \uc5b4\ud150\uc158 \uc218\uc2dd\uc774 \ud1a0\ud070 \uc0ac\uc774\uc758 \uc5f0\uacb0 \uac15\ub3c4\ub97c \uacb0\uc815\ud569\ub2c8\ub2e4.",
- "voice": "Edge('auto', voice='ko-KR-SunHiNeural')",
+ "voice": "Edge('ko-KR-SunHiNeural')",
  "suffix": ".mp3",
- "audio": "479664c9bccd3910",
+ "audio": "442d5054346fb7c4",
  "edit": {
   "start": 0.0,
   "end": null,

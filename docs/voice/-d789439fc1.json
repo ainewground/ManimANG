@@ -1,8 +1,8 @@
 {
  "text": "\ube5b\uc740 \uc77c\ubc18\uc0c1\ub300\uc131\uc774\ub860\uc758 \uc601\uce21\uc9c0\uc120 \ubc29\uc815\uc2dd\uc744 \ub530\ub974\uba70, \ucda9\uaca9 \uacc4\uc218\uc5d0 \ub530\ub77c \uc138 \uac00\uc9c0 \uc6b4\uba85\uc73c\ub85c \uac08\ub77c\uc9d1\ub2c8\ub2e4.",
- "voice": "Edge('auto', voice='ko-KR-SunHiNeural')",
+ "voice": "Edge('ko-KR-SunHiNeural')",
  "suffix": ".mp3",
- "audio": "a5e557b5a2051c48",
+ "audio": "ae93e24ebdf44505",
  "edit": {
   "start": 0.0,
   "end": null,
