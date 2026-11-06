@@ -52,10 +52,15 @@ manimgx inspect scene.py CircleArea
 manimgx render scene.py CircleArea -r 1280x720 --fps 30 -o draft.mp4
 ```
 
-`inspect` writes a storyboard and reports the timeline and sampled 2D layout problems.
-Look at the pictures and fix unintended overlap or clipping; use `-t 0.5,end` to inspect
-particular moments. These are sampled checks, and 3D scenes receive storyboards without
-2D layout checks. Review the draft's motion as well as its still frames.
+`inspect` writes a storyboard and reports the timeline and sampled 2D and 3D layout problems
+(including 3D meshes occluding HUD text, 3D lines piercing labels, foreshortened text, and
+clipping). Look at the pictures and fix unintended overlap or clipping; use `-t 0.5,end` to
+inspect particular moments, or run `manimang agent` for autonomous self-correction. Review
+the draft's motion as well as its still frames.
+
+For narrated scenes (`self.say(...)`), use `m.QwenTTS("Aiden", language="Korean")` for local
+Apple Silicon MLX speech, `m.Edge()` for free multilingual neural TTS, or `m.SystemVoice()`
+for offline OS TTS.
 
 Render the final video at the user's requested size and frame rate (`-r WIDTHxHEIGHT`
 and `--fps RATE`). Without those options, export is 1920×1080 at 60 fps. Include the output

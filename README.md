@@ -9,8 +9,12 @@
 </p>
 
 <p align="center">
+  🌐 <b>English</b> · <a href="https://github.com/ainewground/ManimANG/blob/main/README.ko.md"><b>한국어 (Korean)</b></a>
+</p>
+
+<p align="center">
   <b>Agent-Native 3D Mathematical &amp; Scientific Animation Engine by <a href="https://ainewground.com">AI New Ground</a>.</b><br>
-  <b>자율형 AI 영상 에이전트 · 3D 시공간 레이아웃 검증(<code>manimang inspect</code>) · 한국어/다국어 로컬 음성 동기화(<code>Qwen3-TTS</code> / <code>Edge</code>)를 탑재한 초고속 Rust + wgpu 3D 애니메이션 엔진</b><br>
+  Powered by Rust and <code>wgpu</code> with 3D depth/occlusion diagnostics (<code>manimang inspect</code>), autonomous self-correction (<code>manimang agent</code>), Google Filament Studio PBR materials, and zero-key local/multilingual TTS (<code>Qwen3-TTS</code>, <code>Edge</code>, <code>SystemVoice</code>).<br>
   Built on <a href="https://github.com/academa-labs/manimgx">ManimGX</a> and 100% compatible with <a href="https://www.manim.community">Manim CE's API</a>.
 </p>
 
@@ -18,12 +22,14 @@
   <b><a href="https://ainewground.com">AI New Ground</a></b> ·
   <a href="https://github.com/ainewground/ManimANG#manimang-flagship-3d-pbr-showcases">Flagship 3D Showcases</a> ·
   <a href="https://github.com/ainewground/ManimANG#why-manimang">Why ManimANG?</a> ·
+  <a href="https://github.com/ainewground/ManimANG#compare-3d-quality--layout-verification">3D PBR vs Legacy</a> ·
   <a href="https://github.com/ainewground/ManimANG#get-started">Quickstart</a> ·
   <a href="https://manimgx.academa.ai/reference/">API Reference</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/ainewground/ManimANG"><img alt="ManimANG by AI New Ground" src="https://img.shields.io/badge/ManimANG-AI%20New%20Ground-38bdf8"></a>
+  <a href="https://github.com/ainewground/ManimANG/releases/tag/v0.1.1-showcase"><img alt="Showcase Release" src="https://img.shields.io/badge/release-v0.1.1--showcase-fbbf24"></a>
   <a href="https://coverage.manimgx.academa.ai"><img alt="Test coverage" src="https://img.shields.io/endpoint?url=https%3A%2F%2Fcoverage.manimgx.academa.ai%2Fbadge.json&label=coverage"></a>
   <a href="https://pypi.org/project/manimgx/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/manimgx?color=58c4dd&label=PyPI"></a>
   <a href="https://www.npmjs.com/package/manimgx"><img alt="npm version" src="https://img.shields.io/npm/v/manimgx?color=58c4dd"></a>
@@ -31,7 +37,7 @@
 
 ## ManimANG Flagship 3D PBR Showcases
 
-Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material`)**, **real shadow maps (`m.SunLight(shadows=True)`)**, **image-based studio softbox lighting (`m.EnvironmentLight`)**, **AgX filmic tone mapping**, **SSAO contact shadows**, **3D cylindrical `tube()` meshes**, **0 layout defects verified by `manimang inspect`**, and **Korean word-level narration (`m.QwenTTS("Aiden")` — 지피티쌤 보이스)**:
+Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material`)**, **real shadow maps (`m.SunLight(shadows=True)`)**, **image-based studio softbox lighting (`m.EnvironmentLight`)**, **AgX filmic tone mapping**, **SSAO contact shadows**, **3D cylindrical `tube()` meshes**, **0 layout defects verified by `manimang inspect`**, and **local Apple Silicon MLX `Qwen3-TTS` narration (`m.QwenTTS("Aiden")`)**:
 
 <p align="center">
   <a href="https://github.com/ainewground/ManimANG/blob/main/examples/attention_manifold.py"><img alt="Attention as gravity on the unit sphere: token embeddings cluster on a dielectric glass Riemann sphere" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/attention_manifold.gif" width="32%"></a>
@@ -39,11 +45,11 @@ Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material
   <a href="https://github.com/ainewground/ManimANG/blob/main/examples/schrodinger_harmonic.py"><img alt="Quantum harmonic oscillator 3D complex corkscrew wavepacket and Ehrenfest oscillation casting real shadows" src="https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/schrodinger_harmonic.gif" width="32%"></a>
 </p>
 
-| Flagship Film | Mathematical &amp; Physical Model | ManimANG Studio PBR &amp; Choreography Highlights |
+| Flagship Film &amp; Full 1080p60 Video | Mathematical &amp; Physical Model | ManimANG Studio PBR &amp; Choreography Highlights |
 | :--- | :--- | :--- |
-| **[`attention_manifold.py`](https://github.com/ainewground/ManimANG/blob/main/examples/attention_manifold.py)**<br>구면 다양체 위의 어텐션 동역학 | Riemannian continuous-time Transformer flow on $S^2$:<br>$A_{ij} = \operatorname{softmax}_j(\langle Qx_i, Kx_j\rangle / \tau)$ | Translucent dielectric glass Riemann sphere (`Material(roughness=0.14)`), 8 ceramic/metallic token orbs, 10 dynamic 3D cylindrical geodesic tubes, live 2D Shannon entropy curve $H(A)$ |
-| **[`schwarzschild_geodesic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schwarzschild_geodesic.py)**<br>블랙홀 중력 렌즈와 광자 구 | General-relativistic null geodesics on Flamm's paraboloid:<br>$(du/d\varphi)^2 = 1/b^2 - u^2(1 - r_s u)$, $b_c = \frac{3\sqrt{3}}{2}r_s$ | Deep gravitational funnel mesh with warm throat `PointLight`, golden 3D photon-sphere torus ($r_{\text{ph}} = 1.5\,r_s$), 7 tubular photon trajectories + live $V_{\text{eff}}(r)$ barrier plot |
-| **[`schrodinger_harmonic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schrodinger_harmonic.py)**<br>양자 조화 진동자와 결맞음 파속 | 1D TDSE coherent wavepacket ($N=12$ Hermite-Gauss basis):<br>$\langle x \rangle(t) = \sqrt{2}\,\alpha_0 \cos(\omega t)$ | Gleaming 3D cylindrical complex corkscrew $\Psi(x,t) = (x, \operatorname{Re}\Psi, \operatorname{Im}\Psi)$ casting real shadows onto a studio floor beside the 3D probability ridge $|\Psi|^2$ and $(\langle x\rangle, \langle p\rangle)$ orbit |
+| **[`attention_manifold.py`](https://github.com/ainewground/ManimANG/blob/main/examples/attention_manifold.py)**<br>[▶ Watch Full 1080p60 MP4 (with Audio)](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film1_attention_manifold.mp4) · [.srt](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film1_attention_manifold.srt) | Riemannian continuous-time Transformer flow on $S^2$:<br>$A_{ij} = \operatorname{softmax}_j(\langle Qx_i, Kx_j\rangle / \tau)$ | Translucent dielectric glass Riemann sphere (`Material(roughness=0.14)`), 8 ceramic/metallic token orbs, 10 dynamic 3D cylindrical geodesic tubes, live 2D Shannon entropy curve $H(A)$ |
+| **[`schwarzschild_geodesic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schwarzschild_geodesic.py)**<br>[▶ Watch Full 1080p60 MP4 (with Audio)](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film2_schwarzschild_geodesic.mp4) · [.srt](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film2_schwarzschild_geodesic.srt) | General-relativistic null geodesics on Flamm's paraboloid:<br>$(du/d\varphi)^2 = 1/b^2 - u^2(1 - r_s u)$, $b_c = \frac{3\sqrt{3}}{2}r_s$ | Deep gravitational funnel mesh with warm throat `PointLight`, golden 3D photon-sphere torus ($r_{\text{ph}} = 1.5\,r_s$), 7 tubular photon trajectories + live $V_{\text{eff}}(r)$ barrier plot |
+| **[`schrodinger_harmonic.py`](https://github.com/ainewground/ManimANG/blob/main/examples/schrodinger_harmonic.py)**<br>[▶ Watch Full 1080p60 MP4 (with Audio)](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film3_schrodinger_harmonic.mp4) · [.srt](https://github.com/ainewground/ManimANG/releases/download/v0.1.1-showcase/film3_schrodinger_harmonic.srt) | 1D TDSE coherent wavepacket ($N=12$ Hermite-Gauss basis):<br>$\langle x \rangle(t) = \sqrt{2}\,\alpha_0 \cos(\omega t)$ | Gleaming 3D cylindrical complex corkscrew $\Psi(x,t) = (x, \operatorname{Re}\Psi, \operatorname{Im}\Psi)$ casting real shadows onto a studio floor beside the 3D probability ridge $|\Psi|^2$ and $(\langle x\rangle, \langle p\rangle)$ orbit |
 
 ### Classic Mathematical &amp; Physical Gallery
 
@@ -63,7 +69,7 @@ Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material
 
 ## Why ManimANG?
 
-**ManimANG** (**A**I **N**ew **G**round / **A**gent-**N**ative **G**raphics) extends ManimGX's Rust + `wgpu` engine into a complete, self-verifying production pipeline for AI video agents and Korean/multilingual STEM creators:
+**ManimANG** (**A**I **N**ew **G**round / **A**gent-**N**ative **G**raphics) extends ManimGX's Rust + `wgpu` engine into a complete, self-verifying production pipeline for AI video agents and multilingual STEM creators:
 
 | Capability | ManimCE | ManimGL | ManimGX | **ManimANG (`ainewground/ManimANG`)** |
 | :--- | :---: | :---: | :---: | :---: |
@@ -72,19 +78,19 @@ Rendered at **1080p60** with **Google Filament Studio PBR materials (`m.Material
 | **2D Layout Diagnostics (`inspect`)** | — | — | 2D only (`Scene`) | **2D + Full 3D (`ThreeDScene`)** |
 | **3D Depth &amp; Occlusion Inspector (`manimang inspect`)** | — | — | — | **4×4 Projection + Reversed-Z Depth (`covered`, `crossing`, `small`, `cut`, `overlap`)** |
 | **Closed-Loop Self-Correcting Agent (`manimang agent`)** | — | — | — | **Autonomous `Prompt → Code → 3D Inspect → Repair → MP4`** |
-| **Free / Local Korean &amp; Multilingual TTS** | External only | External only | Paid API (`FAL_KEY`) | **Local MLX `Qwen3-TTS` (`Aiden` 지피티쌤 보이스), Free `Edge`, Offline `SystemVoice`** |
-| **Korean Syllable Span Sync &amp; Eojeol `.srt` Captions** | — | — | Space-split only | **Syllable-level `[원]을` particle split + Eojeol-preserving (`keep-all`) `.srt`** |
+| **Free / Local Multilingual TTS** | External only | External only | Paid API (`FAL_KEY`) | **Local MLX `Qwen3-TTS` (`Aiden` / `Sohee`), Free `Edge`, Offline `SystemVoice`** |
+| **CJK/Korean Syllable Span Sync &amp; `.srt` Captions** | — | — | Space-split only | **Syllable-level `[원]을` particle split + Eojeol-preserving (`keep-all`) `.srt`** |
 | **Browser WebGPU + Dynamic CJK Font Loading** | — | — | Latin default | **Auto-detects Korean/CJK &amp; loads `manimgx-fonts-cjk` on demand** |
 
-### Key ManimANG Innovations
+## Compare 3D Quality &amp; Layout Verification
 
-- **3D Layout &amp; Depth Diagnostics (`manimang inspect`).** Projects every 3D `MeshMobject` (`Sphere`, `Cube`, `Surface`, `Torus`, `Cylinder`, 3D `tube`) through the camera's 4×4 view-projection matrix with reversed-Z depth ordering — automatically catching 3D meshes occluding equations (`covered`), 3D lines/rims piercing labels (`crossing`), perspective-foreshortened text (`small`), off-screen clipping (`cut`), and HUD collisions (`overlap`).
-- **Signature Korean &amp; Multilingual Voice Pipeline (`m.QwenTTS`, `m.Edge`, `m.SystemVoice`).** First-class support for local Apple Silicon MLX `Qwen3-TTS` (`m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)` with automatic internal breath-pause compaction and consonant safety margins), Microsoft Edge neural TTS (`m.Edge()`), and 100% offline OS TTS (`m.SystemVoice()`). Bracketed Korean spans like `self.say("3차원 [구면 다양체] 위의 흐름입니다.", m.Create(sphere))` synchronize animations to the exact noun without its attached particle, while `.srt` subtitles never split a Korean Eojeol mid-word.
-- **Autonomous Self-Correction Agent (`manimang agent`).** Generates or repairs Manim scenes in a closed verification loop (`Prompt → Code → 2D/3D inspect → Self-Correction → MP4`) until `manimang inspect` reports **0 layout problems**.
-- **Dynamic Browser CJK Web Fonts.** The browser WebGPU + Pyodide worker automatically detects Korean Hangul, Chinese Hanzi, and Japanese Kana in scene code and loads `manimgx-fonts-cjk` on demand.
-- **Cloud Studio &amp; Pro AI Models.** Build, host, and automate narrated 3D educational videos with zero local setup at **[ainewground.com](https://ainewground.com)**.
+When AI agents generate 3D scenes without depth-aware inspection or PBR materials, 3D geometry frequently collides with 2D equations and renders with flat legacy shading. **`manimang inspect`** catches 3D-vs-2D occlusions automatically, and **ManimANG Studio PBR** activates Filament materials, studio softbox reflections, AgX tone mapping, and real shadow maps:
 
-## Benchmark Speed &amp; Visual Quality ("Compare the Same Scene")
+| Legacy Flat 3D (`shade_in_3d` + Uninspected Occlusion) | ManimANG Studio PBR + `manimang inspect` Verified (`0` Defects) |
+| :---: | :---: |
+| ![Legacy Flat 3D scene with 3D sphere occluding equation caught by manimang inspect](https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/compare-legacy-flat-3d.png) | ![ManimANG Studio PBR scene with Filament materials, softbox reflections, shadow maps, and zero layout defects](https://raw.githubusercontent.com/ainewground/ManimANG/main/docs/content/showcase/compare-manimang-pbr-3d.png) |
+
+## Benchmark Speed &amp; Cross-Engine Comparison
 
 **36.2 seconds of video, rendered in 3.08 seconds.** Across five scenes at 1080p60 on an Apple M4 Pro, the Rust + `wgpu` engine under ManimANG / ManimGX is **90.6× faster than ManimCE**, **11.5× faster than ManimGL**, and **18.7× faster than Blender Workbench**, from launch to finished MP4. [How it was measured](https://github.com/academa-labs/manimgx/tree/main/benchmarks): the scenes, the settings and every run.
 
@@ -129,7 +135,7 @@ import manimang as m
 
 
 class KoreanSphere3D(m.ThreeDScene):
-    # Signature 지피티쌤 local MLX Qwen3-TTS voice (or m.Edge(), m.SystemVoice())
+    # Local Apple Silicon MLX Qwen3-TTS voice (or m.Edge(), m.SystemVoice())
     voice = m.QwenTTS("Aiden", language="Korean", seed=20261017, speed=1.18)
 
     def construct(self) -> None:
